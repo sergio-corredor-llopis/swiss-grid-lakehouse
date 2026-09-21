@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "swiss-grid-lakehouse"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "entsoe-py==0.8.1",
+    "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/swiss_grid_lakehouse"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
