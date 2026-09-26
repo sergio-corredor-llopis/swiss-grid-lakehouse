@@ -125,3 +125,5 @@ pytest -q -rs tests/test_smoke.py
 ```
 
 Expected: `3 passed`. Undo with `git checkout -- tests/test_smoke.py`.
+
+Next: [Bronze on Delta](bronze_delta.md) writes the recorded response to a Delta table.

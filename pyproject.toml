@@ -13,6 +13,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+spark = ["pyspark==4.0.1", "delta-spark==4.0.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/swiss_grid_lakehouse"]
@@ -25,3 +26,6 @@ select = ["E", "F", "I"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "spark: needs the optional spark dependency group (pip install .[spark]) and a local JVM",
+]
