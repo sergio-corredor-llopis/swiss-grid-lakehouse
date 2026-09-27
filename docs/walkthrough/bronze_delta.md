@@ -73,3 +73,5 @@ Expected: `48 1`.
 
 `pytest -q -m "not spark"` runs the fast tests. `pytest -q -m spark` runs the
 Delta write test and needs Java. CI runs both in separate jobs.
+
+Next: [Silver with Delta MERGE](silver_merge.md).

@@ -37,6 +37,7 @@ def _local() -> Any:
         )
         .config("spark.sql.shuffle.partitions", "2")
         .config("spark.ui.enabled", "false")
+        .config("spark.sql.session.timeZone", "UTC")
     )
     ivy_dir = os.environ.get(IVY_ENV)
     if ivy_dir:

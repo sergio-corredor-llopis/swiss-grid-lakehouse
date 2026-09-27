@@ -44,3 +44,11 @@ def test_local_delta_round_trip(tmp_path):
     path = str(tmp_path / "t")
     spark.createDataFrame([(1, "a"), (2, "b")], ["id", "v"]).write.format("delta").save(path)
     assert spark.read.format("delta").load(path).count() == 2
+
+
+@pytest.mark.spark
+def test_local_session_time_zone_is_utc():
+    pytest.importorskip("pyspark")
+    pytest.importorskip("delta")
+    spark = session.get_spark("local")
+    assert spark.conf.get("spark.sql.session.timeZone") == "UTC"
