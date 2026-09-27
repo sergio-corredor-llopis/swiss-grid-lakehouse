@@ -38,7 +38,6 @@ def run_gate(
     from pyspark.sql import Window
     from pyspark.sql import functions as f
 
-    df = df.cache()
     key_null = f.lit(False)
     for c in KEY:
         key_null = key_null | f.col(c).isNull()
