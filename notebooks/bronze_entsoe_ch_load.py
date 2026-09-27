@@ -2,11 +2,14 @@
 # MAGIC %md
 # MAGIC # Bronze load: ENTSO-E Swiss actual load
 # MAGIC
-# MAGIC Loads one recorded ENTSO-E Transparency Platform actual-load XML file (Switzerland) from a
-# MAGIC Unity Catalog Volume into an append-only managed Delta table. It calls the same
-# MAGIC `write_bronze` as the command line entry point `python -m swiss_grid_lakehouse.bronze`.
+# MAGIC Loads ENTSO-E Transparency Platform actual-load data (Switzerland) into an append-only
+# MAGIC managed Delta table. It calls the same `write_bronze` as the command line entry point
+# MAGIC `python -m swiss_grid_lakehouse.bronze`, using the notebook's built-in `spark` session.
 # MAGIC
-# MAGIC Widgets: `source` is the XML file in a Volume, `catalog` and `schema` name the target.
+# MAGIC Widgets: `source` is either the path of a recorded XML file in a Unity Catalog Volume or
+# MAGIC the word `api`, which fetches the last two days from the ENTSO-E RESTful API with the
+# MAGIC token stored in the Databricks secret scope `entsoe`, key `token`. `catalog` and
+# MAGIC `schema` name the target.
 
 # COMMAND ----------
 
@@ -20,38 +23,47 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from swiss_grid_lakehouse.bronze import to_bronze_rows, write_bronze
-from swiss_grid_lakehouse.spark import get_spark
 
 TABLE = "entsoe_ch_load_bronze"
+CH_AREA = "10YCH-SWISSGRIDZ"
 
 # COMMAND ----------
 
-dbutils.widgets.text("source", "", "XML file (Volume path)")  # noqa: F821
-dbutils.widgets.text("catalog", "main", "Target catalog")  # noqa: F821
+dbutils.widgets.text("source", "", "XML file (Volume path) or api")  # noqa: F821
+dbutils.widgets.text("catalog", "workspace", "Target catalog")  # noqa: F821
 dbutils.widgets.text("schema", "swiss_grid", "Target schema")  # noqa: F821
 
 source = dbutils.widgets.get("source")  # noqa: F821
 catalog = dbutils.widgets.get("catalog")  # noqa: F821
 schema = dbutils.widgets.get("schema")  # noqa: F821
 if not source:
-    raise ValueError("set the `source` widget to the path of an ENTSO-E load XML file")
+    raise ValueError("set the `source` widget to a Volume path of an XML file, or to `api`")
 
 # COMMAND ----------
 
-# Copy the file from the Volume to local disk, then read it as text.
-local_dir = Path(tempfile.mkdtemp())
-local_xml = local_dir / Path(source).name
-shutil.copy(source, local_xml)
-xml_text = local_xml.read_text(encoding="utf-8")
+if source == "api":
+    import pandas as pd
+    from entsoe import EntsoeRawClient
+
+    token = dbutils.secrets.get("entsoe", "token")  # noqa: F821
+    end = pd.Timestamp.now(tz="Europe/Zurich").normalize()
+    start = end - pd.Timedelta(days=2)
+    xml_text = EntsoeRawClient(api_key=token).query_load(CH_AREA, start=start, end=end)
+    source_name = f"entsoe_api_{start:%Y%m%d}_{end:%Y%m%d}.xml"
+else:
+    # Copy the file from the Volume to local disk, then read it as text.
+    local_xml = Path(tempfile.mkdtemp()) / Path(source).name
+    shutil.copy(source, local_xml)
+    xml_text = local_xml.read_text(encoding="utf-8")
+    source_name = local_xml.name
 
 # COMMAND ----------
 
-spark = get_spark("databricks")
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{catalog}`.`{schema}`")
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{catalog}`.`{schema}`")  # noqa: F821
 target = f"{catalog}.{schema}.{TABLE}"
 
-rows = to_bronze_rows(xml_text, local_xml.name, datetime.now(UTC))
-written = write_bronze(spark, rows, target)
+rows = to_bronze_rows(xml_text, source_name, datetime.now(UTC))
+written = write_bronze(spark, rows, target)  # noqa: F821
 print(f"{'wrote' if written else 'skipped'} {len(rows)} rows to {target} batch_id={rows[0][3]}")
 
 # COMMAND ----------

@@ -2,9 +2,10 @@
 
 Ingest of Swiss electricity grid data (actual total load) from the ENTSO-E
 Transparency Platform, and a Bronze layer: the recorded response is written to
-an append-only Delta table with Spark. It is tested against a real recorded API
-response and checked by CI on every push. Bronze is built; Silver and Gold are
-not.
+an append-only Delta table with Spark. A Silver layer then deduplicates it,
+runs a data-quality gate and merges it into a second Delta table with `MERGE`.
+It is tested against a real recorded API response and checked by CI on every
+push. Bronze and Silver are built; Gold is not.
 
 Author: Sergio Corredor, data engineer.
 
@@ -19,6 +20,11 @@ recorded XML file --> parse_ch_load_xml()   (pure: text in, DataFrame out)
                   to_bronze_rows()  -->  write_bronze()  -->  Bronze Delta table (append-only)
                                               ^
                                      get_spark("local" | "databricks")
+                                              |
+                                              v
+             to_silver() --> run_gate() --pass--> merge_silver() --> Silver Delta table
+                                |
+                                +--fail--> nothing merged, bad rows to <target>_rejected
 ```
 
 - `parse_ch_load_xml`: pure parser, no network, no environment access.
@@ -29,6 +35,12 @@ recorded XML file --> parse_ch_load_xml()   (pure: text in, DataFrame out)
 - `write_bronze`: appends to a Delta table given by path or name. `batch_id` is
   a hash of the file, so loading the same file twice is skipped.
 - `get_spark`: a local Spark session with Delta, or Databricks Connect.
+- `to_silver`: one latest row per (source, area, ts_utc), typed, in MW, with the
+  Europe/Zurich wall-clock time added. Gaps are not filled.
+- `run_gate`: keys not null, key unique, load in 1000 to 15000 MW, on the hour,
+  no missing hours, row count not below the current Silver.
+- `merge_silver`: Delta `MERGE` on (source, area, ts_utc); a matched row is
+  updated only if the pull is newer and the value differs.
 
 ## Run it
 
@@ -41,12 +53,16 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,spark]"
 pytest -q
 python -m swiss_grid_lakehouse.bronze --xml tests/fixtures/entsoe_ch_load_sample.xml --target /tmp/bronze_ch_load
+python -m swiss_grid_lakehouse.silver --bronze /tmp/bronze_ch_load --target /tmp/silver_ch_load
 ```
 
-The last command prints `wrote 48 rows batch_id=...`; running it again prints
-`skipped 48 rows ...` and the table still holds 48 rows. No token is needed.
-Walkthroughs: [first ingest](docs/walkthrough/first_ingest.md) and
-[Bronze on Delta](docs/walkthrough/bronze_delta.md).
+The Bronze command prints `wrote 48 rows batch_id=...`; running it again prints
+`skipped 48 rows ...`. The Silver command prints `GATE: PASS ...` and
+`merged inserted=48 updated=0 rows=48`; running it again prints
+`merged inserted=0 updated=0 rows=48`. No token is needed.
+Walkthroughs: [first ingest](docs/walkthrough/first_ingest.md),
+[Bronze on Delta](docs/walkthrough/bronze_delta.md) and
+[Silver with MERGE](docs/walkthrough/silver_merge.md).
 
 ## What the tests and CI prove
 
@@ -59,17 +75,24 @@ Walkthroughs: [first ingest](docs/walkthrough/first_ingest.md) and
 - Bronze rows have the expected shape, non-load XML is rejected, and a test
   marked `spark` writes the fixture to a local Delta table (48 rows) and shows
   that a second write of the same file is skipped.
+- Silver keeps one row per hour, converts to Europe/Zurich time without using
+  local time as a key, and a re-run merges nothing. A batch with a bad row
+  fails the gate, leaves the Silver table at its version and lands in a
+  `_rejected` table.
 - GitHub Actions (`.github/workflows/ci.yml`) runs `ruff check`,
-  `ruff format --check` and `pytest -m "not spark"` in one job, and the
-  `spark` tests with Java 21 in a second job, with no secret.
+  `ruff format --check` and `pytest -m "not spark"` in a job named
+  `lint-and-unit`. A second job, `spark`, runs the Spark tests with Java 21 and
+  then runs Bronze once and Silver twice on the fixture, checking the merge
+  counts. No secret is used.
 
 ## Stack
 
 Python 3.11+, [entsoe-py](https://github.com/EnergieID/entsoe-py) 0.8.1,
 pandas, pytest, ruff, GitHub Actions. Optional extra `spark`: PySpark 4.0.1 and
 delta-spark 4.0.0. A Databricks notebook (`notebooks/bronze_entsoe_ch_load.py`)
-calls the same `write_bronze`; I have not run it on a Databricks workspace, so
-that path is untested. No dbt or Azure code is in this repository.
+calls the same `write_bronze`, and `notebooks/silver_ch_load.py` calls the same
+Silver functions; I have not run either on a Databricks workspace, so that path
+is untested. No dbt or Azure code is in this repository.
 
 ## Data source and attribution
 
@@ -80,14 +103,34 @@ ENTSO-E and its data providers.
 
 ## Roadmap
 
-Built: ingest and Bronze (Spark and Delta, run locally and in CI).
+Built: ingest, Bronze and Silver (Spark and Delta, run locally and in CI).
 
 Planned, not implemented:
 
 1. Run the Bronze notebook on Databricks Free Edition and record the result.
-2. Silver layer: PySpark transformations, Delta `MERGE` and a data-quality gate.
-3. Gold layer: dbt-databricks models, with `OPTIMIZE` / `Z-ORDER` and Delta time
+2. Gold layer: dbt-databricks models, with `OPTIMIZE` / `Z-ORDER` and Delta time
    travel.
-4. Orchestration with Databricks Workflows or Airflow, and a Streamlit view.
-5. Possible extensions: Terraform for an ADLS Gen2 storage target, and
+3. Orchestration with Databricks Workflows or Airflow, and a Streamlit view.
+4. Possible extensions: Terraform for an ADLS Gen2 storage target, and
    streaming.
+
+## Databricks Free Edition run
+
+Bronze and Silver notebooks run on Databricks Free Edition; output as printed by the notebooks:
+
+```
+2026-09-27, Databricks Free Edition, serverless compute, catalog workspace, schema swiss_grid
+
+bronze_entsoe_ch_load, first run (14:33:06):
+wrote 48 rows to workspace.swiss_grid.entsoe_ch_load_bronze batch_id=3a7ceaa73409b117
+bronze_entsoe_ch_load, second run (14:33:57):
+skipped 48 rows to workspace.swiss_grid.entsoe_ch_load_bronze batch_id=3a7ceaa73409b117
+
+silver_ch_load, first run (14:34:55):
+GATE: PASS checks=6
+merged inserted=48 updated=0 rows=48
+
+silver_ch_load, second run (14:36:11):
+GATE: PASS checks=6
+merged inserted=0 updated=0 rows=48
+```
