@@ -88,7 +88,7 @@ Walkthroughs: [first ingest](docs/walkthrough/first_ingest.md),
 ## Stack
 
 Python 3.11+, [entsoe-py](https://github.com/EnergieID/entsoe-py) 0.8.1,
-pandas, pytest, ruff, GitHub Actions. Optional extra `spark`: PySpark 4.0.1 and
+pandas, pytest, ruff, GitHub Actions, Databricks Asset Bundles. Optional extra `spark`: PySpark 4.0.1 and
 delta-spark 4.0.0. A Databricks notebook (`notebooks/bronze_entsoe_ch_load.py`)
 calls the same `write_bronze`, and `notebooks/silver_ch_load.py` calls the same
 Silver functions; I have not run either on a Databricks workspace, so that path
@@ -100,6 +100,12 @@ Data: ENTSO-E Transparency Platform (https://transparency.entsoe.eu/), actual
 total load, Switzerland (bidding zone `10YCH-SWISSGRIDZ`). The fixture is an
 unmodified response from the platform's public RESTful API; the data belongs to
 ENTSO-E and its data providers.
+
+## Release and deploy
+
+CI and deploy are separate. `databricks.yml` defines one job, `ch-load` (Bronze then Silver, serverless). Pushing a tag `v*` runs `deploy.yml`: an offline schema check of the bundle, then `databricks bundle validate` and `databricks bundle deploy -t dev` with the repository secrets `DATABRICKS_HOST` and `DATABRICKS_TOKEN`. Without those secrets (for example in a fork) the deploy job is skipped and the run stays green. CI never sees a secret.
+
+Step by step, including the one-time setup: [deploy walkthrough](docs/walkthrough/deploy.md).
 
 ## Roadmap
 
