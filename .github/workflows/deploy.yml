@@ -1,0 +1,32 @@
+name: Deploy
+on:
+  push: {tags: ["v*"]}
+  workflow_dispatch: {inputs: {run_job: {type: boolean, default: false}}}
+permissions: {contents: read}
+concurrency: {group: deploy-dev, cancel-in-progress: false}
+jobs:
+  bundle-check:
+    runs-on: ubuntu-latest
+    outputs: {has_secrets: "${{ steps.gate.outputs.ok }}"}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: databricks/setup-cli@v1.18.0
+      - run: pip install pyyaml jsonschema && python scripts/check_bundle.py
+      - id: gate
+        env: {H: "${{ secrets.DATABRICKS_HOST }}", T: "${{ secrets.DATABRICKS_TOKEN }}"}
+        run: bash scripts/has_secrets.sh >> "$GITHUB_OUTPUT"
+  deploy:
+    needs: bundle-check
+    if: needs.bundle-check.outputs.has_secrets == 'true'
+    runs-on: ubuntu-latest
+    environment: dev
+    env: {DATABRICKS_HOST: "${{ secrets.DATABRICKS_HOST }}", DATABRICKS_TOKEN: "${{ secrets.DATABRICKS_TOKEN }}"}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: databricks/setup-cli@v1.18.0
+      - run: databricks bundle validate -t dev
+      - run: databricks bundle deploy -t dev
+      - if: inputs.run_job
+        run: databricks bundle run -t dev ch_load | tee -a "$GITHUB_STEP_SUMMARY"
