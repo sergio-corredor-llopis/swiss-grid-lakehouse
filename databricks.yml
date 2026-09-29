@@ -1,0 +1,20 @@
+bundle: {name: swiss-grid-lakehouse}
+variables:
+  catalog: {description: Target catalog, default: workspace}
+  schema:  {description: Target schema, default: swiss_grid}
+  source:  {description: "Volume path of an XML file, or api",
+            default: /Volumes/workspace/swiss_grid/raw/entsoe_ch_load_sample.xml}
+resources:
+  jobs:
+    ch_load:
+      name: ch-load
+      tasks:
+        - task_key: bronze
+          notebook_task: {notebook_path: ./notebooks/bronze_entsoe_ch_load.py,
+            base_parameters: {source: "${var.source}", catalog: "${var.catalog}", schema: "${var.schema}"}}
+        - task_key: silver
+          depends_on: [{task_key: bronze}]
+          notebook_task: {notebook_path: ./notebooks/silver_ch_load.py,
+            base_parameters: {catalog: "${var.catalog}", schema: "${var.schema}"}}
+targets:
+  dev: {mode: development, default: true}
