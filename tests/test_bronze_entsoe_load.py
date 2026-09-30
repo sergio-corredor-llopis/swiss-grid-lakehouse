@@ -5,7 +5,7 @@ import pytest
 
 from swiss_grid_lakehouse.bronze import to_bronze_rows, write_bronze
 
-FIXTURE = Path(__file__).parent / "fixtures" / "entsoe_ch_load_sample.xml"
+FIXTURE = Path(__file__).parent / "fixtures" / "entsoe_ch_load_2026-08-30.xml"
 PULLED = datetime(2026, 9, 3, 12, 0, tzinfo=UTC)
 
 
@@ -19,7 +19,7 @@ def test_rows_shape():
     assert {r[0] for r in rows} == {"entsoe"}
     assert {r[1] for r in rows} == {"CH"}
     assert len({r[3] for r in rows}) == 1
-    assert rows[0][4] == "entsoe_ch_load_sample.xml"
+    assert rows[0][4] == "entsoe_ch_load_2026-08-30.xml"
 
 
 def test_rows_reject_non_load_xml():

@@ -16,13 +16,13 @@ def spark():
 
 @pytest.fixture
 def bronze_path(spark, tmp_path):
-    """A Bronze Delta table built from the recorded ENTSO-E sample (48 hourly rows)."""
+    """A Bronze Delta table built from the recorded ENTSO-E load response (48 hourly rows)."""
     from datetime import UTC, datetime
     from pathlib import Path
 
     from swiss_grid_lakehouse.bronze import to_bronze_rows, write_bronze
 
-    xml = Path(__file__).parent / "fixtures" / "entsoe_ch_load_sample.xml"
+    xml = Path(__file__).parent / "fixtures" / "entsoe_ch_load_2026-08-30.xml"
     rows = to_bronze_rows(
         xml.read_text(encoding="utf-8"), xml.name, datetime(2026, 9, 3, 12, 0, tzinfo=UTC)
     )

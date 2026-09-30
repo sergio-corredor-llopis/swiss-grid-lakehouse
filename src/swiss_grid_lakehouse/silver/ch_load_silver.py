@@ -3,7 +3,9 @@
 `to_silver` keeps one row per (source, area, ts_utc), the latest pull, and adds the local
 Europe/Zurich time. `merge_silver` inserts new keys and updates a row only when the incoming
 pull is newer and the value differs, so running the same batch twice changes nothing.
-Spark is imported lazily.
+`load_mw` is the value that is compared across sources. Two nullable columns carry the
+Swissgrid end-user consumption and the difference between total and end-user consumption;
+ENTSO-E rows hold NULL there. Spark is imported lazily.
 """
 
 from __future__ import annotations
@@ -18,6 +20,8 @@ SILVER_COLUMNS = [
     "local_date",
     "resolution_min",
     "load_mw",
+    "load_enduser_mw",
+    "load_difference_mw",
     "batch_id",
     "valid_from",
     "ingested_at",
@@ -25,9 +29,30 @@ SILVER_COLUMNS = [
 KEY = ["source", "area", "ts_utc"]
 LOCAL_TZ = "Europe/Zurich"
 RESOLUTION_MIN = 60
-# Factor that converts a source unit to MW. ENTSO-E reports MW; a second source adds a row.
-UNIT_TO_MW = {"MW": 1.0}
-SOURCE_UNIT = {"entsoe": "MW"}
+# Factor that converts a source unit to MW. ENTSO-E reports MW; Swissgrid reports the energy
+# of one hour in kWh, and 1 kWh per hour is 0.001 MW.
+UNIT_TO_MW = {"MW": 1.0, "kWh_per_h": 0.001}
+SOURCE_UNIT = {"entsoe": "MW", "swissgrid": "kWh_per_h"}
+# Optional value columns: Bronze/hourly column -> Silver column. A frame without the input
+# column (every ENTSO-E frame) gets NULL.
+EXTRA_MW = {
+    "energy_enduser_kwh": "load_enduser_mw",
+    "energy_difference_kwh": "load_difference_mw",
+}
+ENDUSER_COMMENT = (
+    "Swissgrid 'Summe endverbrauchte Energie' as mean MW over the hour: energy consumed by "
+    "end users. Swissgrid (sheet Uebersicht): not included are grid losses or energy consumed "
+    "for power plant's own requirements or to drive the pumps in pumped storage hydro power "
+    "plant. NULL for ENTSO-E rows."
+)
+DIFFERENCE_COMMENT = (
+    "load_mw minus load_enduser_mw, in MW: what Swissgrid's total consumed energy holds beyond "
+    "end-user consumption. Swissgrid (sheet Uebersicht), total consumed: 'Included are grid "
+    "losses, energy consumed for a power plant's own requirements and to drive the pumps in "
+    "pumped storage hydro power plant.' So the difference is grid losses, power plants' own "
+    "requirements and the pumps of pumped storage plants; the three parts are not published "
+    "separately. NULL for ENTSO-E rows."
+)
 
 
 def _silver_schema() -> Any:
@@ -42,6 +67,10 @@ def _silver_schema() -> Any:
             t.StructField("local_date", t.DateType(), False),
             t.StructField("resolution_min", t.IntegerType(), False),
             t.StructField("load_mw", t.DoubleType(), False),
+            t.StructField("load_enduser_mw", t.DoubleType(), True, {"comment": ENDUSER_COMMENT}),
+            t.StructField(
+                "load_difference_mw", t.DoubleType(), True, {"comment": DIFFERENCE_COMMENT}
+            ),
             t.StructField("batch_id", t.StringType(), False),
             t.StructField("valid_from", t.TimestampType(), False),
             t.StructField("ingested_at", t.TimestampType(), False),
@@ -49,11 +78,16 @@ def _silver_schema() -> Any:
     )
 
 
-def to_silver(bronze_df: Any) -> Any:
+def to_silver(bronze_df: Any, value_col: str = "actual_load_mw") -> Any:
     """Return the Silver frame for a Bronze frame: one latest row per key, typed, in MW.
 
-    Gaps are not filled. The session time zone is set to UTC first so that the local
-    wall-clock column is computed from the UTC instant.
+    `value_col` names the Bronze column that holds the value in the unit of its source; it is
+    `actual_load_mw` for ENTSO-E and `energy_kwh` (total consumed) for the hourly Swissgrid
+    frame. If the frame also has `energy_enduser_kwh` and `energy_difference_kwh` (the hourly
+    Swissgrid frame does) they are converted by the same unit map into `load_enduser_mw` and
+    `load_difference_mw`; otherwise those two columns are NULL. Gaps are not filled. The
+    session time zone is set to UTC first so that the local wall-clock column is computed
+    from the UTC instant.
     """
     from pyspark.sql import Window
     from pyspark.sql import functions as f
@@ -69,6 +103,12 @@ def to_silver(bronze_df: Any) -> Any:
     latest = Window.partitionBy(*KEY).orderBy(f.col("pulled_at").desc(), f.col("batch_id").desc())
     ranked = bronze_df.withColumn("_rn", f.row_number().over(latest)).filter("_rn = 1")
     local = f.from_utc_timestamp(f.col("ts_utc"), LOCAL_TZ).cast("timestamp_ntz")
+    extra = [
+        (f.col(src) * factor[f.col("source")] if src in bronze_df.columns else f.lit(None))
+        .cast("double")
+        .alias(dst)
+        for src, dst in EXTRA_MW.items()
+    ]
     return ranked.select(
         f.col("source"),
         f.col("area"),
@@ -76,7 +116,8 @@ def to_silver(bronze_df: Any) -> Any:
         local.alias("ts_local"),
         local.cast("date").alias("local_date"),
         f.lit(RESOLUTION_MIN).cast("int").alias("resolution_min"),
-        (f.col("actual_load_mw") * factor[f.col("source")]).alias("load_mw"),
+        (f.col(value_col) * factor[f.col("source")]).alias("load_mw"),
+        *extra,
         f.col("batch_id"),
         f.col("pulled_at").alias("valid_from"),
         f.current_timestamp().alias("ingested_at"),

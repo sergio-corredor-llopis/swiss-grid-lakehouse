@@ -5,7 +5,7 @@ import pytest
 
 from swiss_grid_lakehouse.ingest import CH_AREA, fetch_ch_load, parse_ch_load_xml
 
-FIXTURE = Path(__file__).parent / "fixtures" / "entsoe_ch_load_sample.xml"
+FIXTURE = Path(__file__).parent / "fixtures" / "entsoe_ch_load_2026-08-30.xml"
 
 
 @pytest.fixture(scope="module")
@@ -56,8 +56,8 @@ def test_values(frame):
 
 def test_fetch_uses_injected_client(frame):
     fake = FakeClient(frame)
-    start = pd.Timestamp("2026-09-01", tz="Europe/Zurich")
-    end = pd.Timestamp("2026-09-03", tz="Europe/Zurich")
+    start = pd.Timestamp("2026-08-30", tz="Europe/Zurich")
+    end = pd.Timestamp("2026-09-01", tz="Europe/Zurich")
     out = fetch_ch_load(start, end, client=fake)
     assert out is frame
     assert len(fake.calls) == 1
@@ -67,7 +67,7 @@ def test_fetch_uses_injected_client(frame):
 def test_fetch_without_client_or_token_raises(monkeypatch):
     monkeypatch.delenv("ENTSOE_API_TOKEN", raising=False)
     monkeypatch.delenv("ENTSOE_TOKEN", raising=False)
-    start = pd.Timestamp("2026-09-01", tz="Europe/Zurich")
-    end = pd.Timestamp("2026-09-03", tz="Europe/Zurich")
+    start = pd.Timestamp("2026-08-30", tz="Europe/Zurich")
+    end = pd.Timestamp("2026-09-01", tz="Europe/Zurich")
     with pytest.raises(RuntimeError, match="ENTSOE_API_TOKEN"):
         fetch_ch_load(start, end)
