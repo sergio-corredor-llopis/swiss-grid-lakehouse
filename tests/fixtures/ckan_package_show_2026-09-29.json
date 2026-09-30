@@ -1,0 +1,27 @@
+{
+  "title": {
+    "fr": "energiedashboard.ch - Consommation nationale et finale",
+    "it": "energiedashboard.ch - Consumo nazionale e finale",
+    "de": "energiedashboard.ch - Landesverbrauch und Endverbrauch",
+    "en": "energiedashboard.ch - National and final consumption"
+  },
+  "id": "a7c82613-f573-4635-833d-f3cdb8dd4bab",
+  "metadata_modified": "2026-09-30T02:56:07.812085",
+  "resources": [
+    {
+      "id": "9b458e88-81ee-4136-8ec9-cace2f7d2265",
+      "url": "https://www.bfe-ogd.ch/ogd103_stromverbrauch_swissgrid_lv_und_endv.csv",
+      "download_url": "https://www.bfe-ogd.ch/ogd103_stromverbrauch_swissgrid_lv_und_endv.csv",
+      "format": "CSV",
+      "media_type": "text/csv",
+      "title": {
+        "de": "Landesverbrauch und Endverbrauch",
+        "en": "",
+        "fr": "",
+        "it": ""
+      },
+      "rights": "https://opendata.swiss/terms-of-use#terms_by_ask",
+      "license": "https://opendata.swiss/terms-of-use#terms_by_ask"
+    }
+  ]
+}
