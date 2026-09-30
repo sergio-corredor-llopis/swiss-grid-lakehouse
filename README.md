@@ -152,6 +152,40 @@ hourly differences and gates on the daily total only. The cause of the hourly ga
 is not established. Details, definitions and numbers:
 [Swissgrid and the comparison](docs/walkthrough/swissgrid.md).
 
+<!-- daily-control:begin -->
+## Daily control totals
+
+The hourly Silver table is checked against the daily national consumption that the
+Swiss Federal Office of Energy publishes from Swissgrid data. Two commands, run
+here on the recorded files (after the Silver commands above have written
+`/tmp/lh/silver`):
+
+```sh
+python -m swiss_grid_lakehouse.daily --package tests/fixtures/ckan_package_show_2026-09-29.json --csv tests/fixtures/ogd103_2026-08-30_31.csv --target /tmp/lh/daily --state /tmp/lh/state.json
+python -m swiss_grid_lakehouse.reconcile --silver /tmp/lh/silver --daily /tmp/lh/daily
+```
+
+The first prints `REGISTRY changed fetched=1 rows=2 batch=...` and, run again,
+`REGISTRY unchanged`. Without `--package` and `--csv` it reads the live dataset
+record and CSV. The second prints one `DAY` line per day and one `RECONCILE` line
+per series. On the recorded slice both days are preliminary, so it exits 0:
+
+```text
+RECONCILE source=swissgrid series=total published=landesverbrauch days=2 pipeline_gwh=309.72 published_gwh=298.00 diff_pct=3.93 tol=6.5 preliminary=2 final=0 PASS
+RECONCILE source=swissgrid series=enduser published=endverbrauch days=2 pipeline_gwh=244.49 published_gwh=235.00 diff_pct=4.04 tol=6.5 preliminary=2 final=0 PASS
+RECONCILE source=entsoe series=total published=landesverbrauch days=2 pipeline_gwh=303.08 published_gwh=298.00 diff_pct=1.71 tol=5 preliminary=2 final=0 PASS
+```
+
+A final day beyond tolerance exits 3. The definition of ENTSO-E actual total load
+is not established, so the gap between it and the Swissgrid workbook is
+unexplained. Tolerances, the preliminary window and the numbers behind them:
+[Daily control totals](docs/walkthrough/daily_control.md).
+
+Data: Swiss Federal Office of Energy SFOE (data from Swissgrid),
+"energiedashboard.ch - National and final consumption",
+https://opendata.swiss/en/dataset/energiedashboard-ch-landesverbrauch-und-endverbrauch.
+<!-- daily-control:end -->
+
 ## Release and deploy
 
 CI and deploy are separate. `databricks.yml` defines one job, `ch-load` (Bronze then Silver, serverless). Pushing a tag `v*` runs `deploy.yml`: an offline schema check of the bundle, then `databricks bundle validate` and `databricks bundle deploy -t dev` with the repository secrets `DATABRICKS_HOST` and `DATABRICKS_TOKEN`. Without those secrets (for example in a fork) the deploy job is skipped and the run stays green. CI never sees a secret.
