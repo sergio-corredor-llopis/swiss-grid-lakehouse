@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <GL_MarketDocument xmlns="urn:iec62325.351:tc57wg16:451-6:generationloaddocument:3:0">
-  <mRID>f3157050d133446385ffa3ff8c7cda8e</mRID>
+  <mRID>44116f83e7e2479c8cab935199cc20df</mRID>
   <revisionNumber>1</revisionNumber>
   <type>A65</type>
   <process.processType>A16</process.processType>
@@ -8,10 +8,10 @@
   <sender_MarketParticipant.marketRole.type>A32</sender_MarketParticipant.marketRole.type>
   <receiver_MarketParticipant.mRID codingScheme="A01">10X1001A1001A450</receiver_MarketParticipant.mRID>
   <receiver_MarketParticipant.marketRole.type>A33</receiver_MarketParticipant.marketRole.type>
-  <createdDateTime>2026-09-21T09:25:52Z</createdDateTime>
+  <createdDateTime>2026-09-29T18:06:41Z</createdDateTime>
   <time_Period.timeInterval>
-    <start>2026-08-31T22:00Z</start>
-    <end>2026-09-02T22:00Z</end>
+    <start>2026-08-29T22:00Z</start>
+    <end>2026-08-31T22:00Z</end>
   </time_Period.timeInterval>
     <TimeSeries>
       <mRID>1</mRID>
@@ -22,201 +22,201 @@
       <curveType>A03</curveType>
         <Period>
           <timeInterval>
-            <start>2026-08-31T22:00Z</start>
-            <end>2026-09-02T22:00Z</end>
+            <start>2026-08-29T22:00Z</start>
+            <end>2026-08-31T22:00Z</end>
           </timeInterval>
           <resolution>PT60M</resolution>
             <Point>
               <position>1</position>
-              <quantity>5928.598632</quantity>
+              <quantity>5333.949218</quantity>
             </Point>
             <Point>
               <position>2</position>
-              <quantity>5637.956542</quantity>
+              <quantity>6272.974121</quantity>
             </Point>
             <Point>
               <position>3</position>
-              <quantity>5462.840332</quantity>
+              <quantity>5939.361328</quantity>
             </Point>
             <Point>
               <position>4</position>
-              <quantity>6096.131347</quantity>
+              <quantity>5543.890136</quantity>
             </Point>
             <Point>
               <position>5</position>
-              <quantity>5973.88623</quantity>
+              <quantity>6321.970214</quantity>
             </Point>
             <Point>
               <position>6</position>
-              <quantity>6247.242187</quantity>
+              <quantity>5624.000976</quantity>
             </Point>
             <Point>
               <position>7</position>
-              <quantity>7238.634277</quantity>
+              <quantity>5569.339843</quantity>
             </Point>
             <Point>
               <position>8</position>
-              <quantity>7988.986816</quantity>
+              <quantity>5755.969726</quantity>
             </Point>
             <Point>
               <position>9</position>
-              <quantity>6212.203125</quantity>
+              <quantity>5668.572265</quantity>
             </Point>
             <Point>
               <position>10</position>
-              <quantity>6533.646484</quantity>
+              <quantity>6036.828613</quantity>
             </Point>
             <Point>
               <position>11</position>
-              <quantity>6992.965332</quantity>
+              <quantity>5529.779785</quantity>
             </Point>
             <Point>
               <position>12</position>
-              <quantity>7883.845214</quantity>
+              <quantity>7262.319824</quantity>
             </Point>
             <Point>
               <position>13</position>
-              <quantity>6853.925781</quantity>
+              <quantity>7026.978027</quantity>
             </Point>
             <Point>
               <position>14</position>
-              <quantity>8300.451171</quantity>
+              <quantity>7203.377441</quantity>
             </Point>
             <Point>
               <position>15</position>
-              <quantity>6263.778808</quantity>
+              <quantity>6623.974609</quantity>
             </Point>
             <Point>
               <position>16</position>
-              <quantity>7034.736816</quantity>
+              <quantity>5786.716308</quantity>
             </Point>
             <Point>
               <position>17</position>
-              <quantity>7209.279785</quantity>
+              <quantity>6263.472656</quantity>
             </Point>
             <Point>
               <position>18</position>
-              <quantity>8145.180175</quantity>
+              <quantity>6534.668457</quantity>
             </Point>
             <Point>
               <position>19</position>
-              <quantity>7438.749511</quantity>
+              <quantity>6458.476562</quantity>
             </Point>
             <Point>
               <position>20</position>
-              <quantity>7115.197265</quantity>
+              <quantity>6322.32373</quantity>
             </Point>
             <Point>
               <position>21</position>
-              <quantity>7283.974609</quantity>
+              <quantity>6112.298828</quantity>
             </Point>
             <Point>
               <position>22</position>
-              <quantity>6501.812011</quantity>
+              <quantity>6038.699707</quantity>
             </Point>
             <Point>
               <position>23</position>
-              <quantity>6240.924804</quantity>
+              <quantity>6002.947753</quantity>
             </Point>
             <Point>
               <position>24</position>
-              <quantity>5387.918945</quantity>
+              <quantity>5460.731933</quantity>
             </Point>
             <Point>
               <position>25</position>
-              <quantity>5804.555175</quantity>
+              <quantity>5618.904785</quantity>
             </Point>
             <Point>
               <position>26</position>
-              <quantity>5702.541015</quantity>
+              <quantity>5302.835937</quantity>
             </Point>
             <Point>
               <position>27</position>
-              <quantity>5590.896484</quantity>
+              <quantity>6223.016601</quantity>
             </Point>
             <Point>
               <position>28</position>
-              <quantity>5606.017578</quantity>
+              <quantity>5037.765136</quantity>
             </Point>
             <Point>
               <position>29</position>
-              <quantity>6427.29248</quantity>
+              <quantity>4886.300781</quantity>
             </Point>
             <Point>
               <position>30</position>
-              <quantity>5454.311035</quantity>
+              <quantity>6083.521484</quantity>
             </Point>
             <Point>
               <position>31</position>
-              <quantity>7059.283691</quantity>
+              <quantity>6374.662109</quantity>
             </Point>
             <Point>
               <position>32</position>
-              <quantity>6201.500976</quantity>
+              <quantity>6624.316894</quantity>
             </Point>
             <Point>
               <position>33</position>
-              <quantity>6845.384277</quantity>
+              <quantity>5850.04248</quantity>
             </Point>
             <Point>
               <position>34</position>
-              <quantity>6605.054199</quantity>
+              <quantity>6745.027343</quantity>
             </Point>
             <Point>
               <position>35</position>
-              <quantity>7197.365234</quantity>
+              <quantity>7064.524414</quantity>
             </Point>
             <Point>
               <position>36</position>
-              <quantity>6723.844726</quantity>
+              <quantity>7570.748535</quantity>
             </Point>
             <Point>
               <position>37</position>
-              <quantity>7339.09082</quantity>
+              <quantity>6796.043457</quantity>
             </Point>
             <Point>
               <position>38</position>
-              <quantity>7632.745117</quantity>
+              <quantity>8063.093261</quantity>
             </Point>
             <Point>
               <position>39</position>
-              <quantity>7335.88623</quantity>
+              <quantity>6978.952148</quantity>
             </Point>
             <Point>
               <position>40</position>
-              <quantity>7012.03955</quantity>
+              <quantity>6699.831054</quantity>
             </Point>
             <Point>
               <position>41</position>
-              <quantity>7223.332519</quantity>
+              <quantity>7143.511718</quantity>
             </Point>
             <Point>
               <position>42</position>
-              <quantity>7049.504394</quantity>
+              <quantity>7514.578613</quantity>
             </Point>
             <Point>
               <position>43</position>
-              <quantity>7551.314453</quantity>
+              <quantity>6811.887207</quantity>
             </Point>
             <Point>
               <position>44</position>
-              <quantity>7123.916015</quantity>
+              <quantity>7133.088867</quantity>
             </Point>
             <Point>
               <position>45</position>
-              <quantity>8081.945312</quantity>
+              <quantity>7409.556152</quantity>
             </Point>
             <Point>
               <position>46</position>
-              <quantity>7269.361328</quantity>
+              <quantity>6002.144531</quantity>
             </Point>
             <Point>
               <position>47</position>
-              <quantity>6327.452148</quantity>
+              <quantity>6254.396484</quantity>
             </Point>
             <Point>
               <position>48</position>
-              <quantity>6105.942871</quantity>
+              <quantity>6201.571777</quantity>
             </Point>
         </Period>
     </TimeSeries>

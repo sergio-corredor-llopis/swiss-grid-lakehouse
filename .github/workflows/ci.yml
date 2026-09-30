@@ -24,7 +24,7 @@ jobs:
 
   spark:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v4
@@ -40,13 +40,27 @@ jobs:
           path: ~/.ivy2
           key: ivy-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
           restore-keys: ivy-${{ runner.os }}-
-      - run: python -m pip install --upgrade pip && pip install -e ".[dev,spark]"
+      - run: python -m pip install --upgrade pip && pip install -e ".[dev,spark,swissgrid]"
       - run: pytest -q -m spark
       - name: Bronze -> Silver twice
         run: |
           out="$RUNNER_TEMP/lakehouse"
-          python -m swiss_grid_lakehouse.bronze --xml tests/fixtures/entsoe_ch_load_sample.xml --target "$out/bronze"
-          python -m swiss_grid_lakehouse.silver --bronze "$out/bronze" --target "$out/silver" | tee "$out/run1.txt"
-          python -m swiss_grid_lakehouse.silver --bronze "$out/bronze" --target "$out/silver" | tee "$out/run2.txt"
-          grep -q "merged inserted=48 updated=0 rows=48" "$out/run1.txt"
-          grep -q "merged inserted=0 updated=0 rows=48" "$out/run2.txt"
+          for run in 1 2; do
+            python -m swiss_grid_lakehouse.bronze --xml tests/fixtures/entsoe_ch_load_2026-08-30.xml --target "$out/bronze_entsoe"
+          done
+          python -m swiss_grid_lakehouse.silver --bronze "$out/bronze_entsoe" --target "$out/silver" --source entsoe | tee "$out/entsoe_run1.txt"
+          python -m swiss_grid_lakehouse.silver --bronze "$out/bronze_entsoe" --target "$out/silver" --source entsoe | tee "$out/entsoe_run2.txt"
+          grep -q "merged inserted=48 updated=0 rows=48" "$out/entsoe_run1.txt"
+          grep -q "merged inserted=0 updated=0 rows=48" "$out/entsoe_run2.txt"
+      - name: Swissgrid Bronze -> Silver twice
+        run: |
+          out="$RUNNER_TEMP/lakehouse"
+          for run in 1 2; do
+            python -m swiss_grid_lakehouse.bronze --swissgrid tests/fixtures/swissgrid_ch_energy_2026-08-30.csv --target "$out/bronze_swissgrid"
+          done
+          python -m swiss_grid_lakehouse.silver --bronze "$out/bronze_swissgrid" --target "$out/silver" --source swissgrid | tee "$out/swissgrid_run1.txt"
+          python -m swiss_grid_lakehouse.silver --bronze "$out/bronze_swissgrid" --target "$out/silver" --source swissgrid | tee "$out/swissgrid_run2.txt"
+          grep -q "merged inserted=48 updated=0 rows=48" "$out/swissgrid_run1.txt"
+          grep -q "merged inserted=0 updated=0 rows=48" "$out/swissgrid_run2.txt"
+      - name: Compare
+        run: python -m swiss_grid_lakehouse.compare --silver "$RUNNER_TEMP/lakehouse/silver"

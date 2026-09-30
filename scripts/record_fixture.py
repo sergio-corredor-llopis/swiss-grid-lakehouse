@@ -25,9 +25,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-DEFAULT_START = "2026-09-01"
-DEFAULT_END = "2026-09-03"
-DEFAULT_OUT = "tests/fixtures/entsoe_ch_load_sample.xml"
+DEFAULT_START = "2026-08-30"
+DEFAULT_END = "2026-09-01"
+DEFAULT_OUT = "tests/fixtures/entsoe_ch_load_2026-08-30.xml"
 CH_AREA = "10YCH-SWISSGRIDZ"
 
 TOKEN_HELP = "See the ENTSO-E Transparency Platform RESTful API guide for how to request a token."
