@@ -6,7 +6,8 @@ written to an append-only Bronze Delta table with Spark. A Silver layer
 deduplicates it, runs a data-quality gate and merges it into a second Delta
 table with `MERGE`. A compare command then puts the two publishers side by side.
 It is tested against real recorded data and checked by CI on every push. Bronze,
-Silver and the comparison are built; Gold is not.
+Silver and the comparison are built; Gold is not. A bundle target for Azure
+Databricks is defined and checked offline; it has not been run yet.
 
 Author: Sergio Corredor, data engineer.
 
@@ -115,8 +116,10 @@ Python 3.11+, [entsoe-py](https://github.com/EnergieID/entsoe-py) 0.8.1,
 pandas, pytest, ruff, GitHub Actions, Databricks Asset Bundles. Optional extra `spark`: PySpark 4.0.1 and
 delta-spark 4.0.0. A Databricks notebook (`notebooks/bronze_entsoe_ch_load.py`)
 calls the same `write_bronze`, and `notebooks/silver_ch_load.py` calls the same
-Silver functions; I have not run either on a Databricks workspace, so that path
-is untested. No dbt or Azure code is in this repository.
+Silver functions. Two more notebooks cover the Swissgrid Bronze table and the daily
+reconcile. The ENTSO-E Bronze and Silver notebooks ran on Databricks Free Edition
+on 2026-09-27 (output recorded below); the Swissgrid Bronze and reconcile notebooks
+have not been run on a workspace. No dbt or Terraform code is in this repository.
 
 ## Data sources and attribution
 
@@ -188,26 +191,55 @@ https://opendata.swiss/en/dataset/energiedashboard-ch-landesverbrauch-und-endver
 
 ## Release and deploy
 
-CI and deploy are separate. `databricks.yml` defines one job, `ch-load` (Bronze then Silver, serverless). Pushing a tag `v*` runs `deploy.yml`: an offline schema check of the bundle, then `databricks bundle validate` and `databricks bundle deploy -t dev` with the repository secrets `DATABRICKS_HOST` and `DATABRICKS_TOKEN`. Without those secrets (for example in a fork) the deploy job is skipped and the run stays green. CI never sees a secret.
+CI and deploy are separate. `databricks.yml` defines the job `ch-load` for the default `dev` target (ENTSO-E Bronze, then Silver, serverless). It has no Swissgrid Bronze task, so the Swissgrid source runs only from the command line on that target; the `azure` target below runs both. Pushing a tag `v*` runs `deploy.yml`: an offline schema check of the bundle, then `databricks bundle validate` and `databricks bundle deploy -t dev` with the repository secrets `DATABRICKS_HOST` and `DATABRICKS_TOKEN`. Without those secrets (for example in a fork) the deploy job is skipped and the run stays green. CI never sees a secret.
 
 Step by step, including the one-time setup: [deploy walkthrough](docs/walkthrough/deploy.md).
 
+<!-- azure:begin -->
+## Azure Databricks target
+
+`databricks.yml` also has a target `azure` with one job, `ch-load-azure`, on
+serverless compute. Its four tasks run the whole pipeline in order: ENTSO-E Bronze
+and Swissgrid Bronze, then Silver (which prints the hourly and comparison lines),
+then the daily reconcile. The inputs are a recorded slice, the two days 2026-08-30
+and 2026-08-31, which the deploy job copies from `tests/fixtures/` into a Unity
+Catalog Volume first. The job makes no live API call and holds no secret. The
+`deploy-azure` job in `deploy.yml` starts only from a manual workflow run, in the
+environment `azure`, and signs in by OpenID Connect federation with a service
+principal: no token is stored.
+
+What exists and is checked offline: the bundle schema of the target, a test that
+`dev` is unchanged, the gate script of the workflow, and a renderer that turns the
+job output into a run summary and exits non-zero if the output holds a host name,
+a token or a GUID. What is not done: the job has not been run on an Azure
+workspace. The first run is recorded separately. Setup, the exact commands, what
+only a workspace can prove and the teardown:
+[Azure walkthrough](docs/walkthrough/azure.md).
+<!-- azure:end -->
+
 ## Roadmap
 
-Built: ingest, Bronze and Silver (Spark and Delta, run locally and in CI).
+Built: ingest, Bronze and Silver for both sources, the hourly comparison and the
+daily control totals (Spark and Delta, run locally and in CI). Built but not yet
+run: the `azure` bundle target.
 
 Planned, not implemented:
 
-1. Run the Bronze notebook on Databricks Free Edition and record the result.
+1. Done: the ENTSO-E Bronze and Silver notebooks ran on Databricks Free Edition
+   on 2026-09-27 (recorded below). Next: run the `azure` target on an Azure
+   Databricks workspace and record that run.
 2. Gold layer: dbt-databricks models, with `OPTIMIZE` / `Z-ORDER` and Delta time
    travel.
 3. Orchestration with Databricks Workflows or Airflow, and a Streamlit view.
-4. Possible extensions: Terraform for an ADLS Gen2 storage target, and
-   streaming.
+4. Possible extensions: Terraform for an ADLS Gen2 storage target (the `azure`
+   target uses managed tables in a workspace catalog and needs no storage
+   account), and streaming.
 
 ## Databricks Free Edition run
 
-Bronze and Silver notebooks run on Databricks Free Edition; output as printed by the notebooks:
+The ENTSO-E Bronze notebook and the Silver notebook (ENTSO-E source only at the
+time) ran on Databricks Free Edition; output as printed by the notebooks. The
+Swissgrid Bronze and reconcile notebooks have not been run on a workspace:
 
 ```
 2026-09-27, Databricks Free Edition, serverless compute, catalog workspace, schema swiss_grid

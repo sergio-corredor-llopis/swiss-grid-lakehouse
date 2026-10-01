@@ -8,12 +8,15 @@
 # MAGIC compares them with the published figures. It calls the same `run` and `reconcile`
 # MAGIC functions as the command line entry points `python -m swiss_grid_lakehouse.daily` and
 # MAGIC `python -m swiss_grid_lakehouse.reconcile`, using the notebook's built-in `spark`
-# MAGIC session. The only network calls are the registry package URL and the CSV URL.
+# MAGIC session. With the default widgets the only network calls are the registry package URL
+# MAGIC and the CSV URL.
 # MAGIC
 # MAGIC Widgets: `catalog` and `schema` name where the Bronze daily table and the Silver
 # MAGIC table live. `state` is the path of a small file that keeps the last registry
-# MAGIC `metadata_modified` (a Unity Catalog Volume path keeps it between runs). The last cell
-# MAGIC prints the `DAY` lines and three `RECONCILE` lines. A run fails when a final day is
+# MAGIC `metadata_modified` (a Unity Catalog Volume path keeps it between runs). `package` and
+# MAGIC `csv` are the registry package answer and the published CSV; each is a URL or a file
+# MAGIC path, and the defaults are the live URLs. The last cell prints the `DAY` lines and
+# MAGIC three `RECONCILE` lines. A run fails when a final day is
 # MAGIC beyond tolerance; a preliminary day is printed and counted but never fails it.
 
 # COMMAND ----------
@@ -38,21 +41,33 @@ CSV_URL = "https://www.bfe-ogd.ch/ogd103_stromverbrauch_swissgrid_lv_und_endv.cs
 
 # COMMAND ----------
 
+try:
+    environment_version = spark.conf.get("spark.databricks.environment.version")  # noqa: F821
+except Exception:
+    environment_version = "not recorded"
+print(f"RUN spark_version={spark.version} environment_version={environment_version}")  # noqa: F821
+
+# COMMAND ----------
+
 dbutils.widgets.text("catalog", "workspace", "Catalog")  # noqa: F821
 dbutils.widgets.text("schema", "swiss_grid", "Schema")  # noqa: F821
 STATE_DEFAULT = "/Volumes/workspace/swiss_grid/raw/state/ogd_registry.json"
 dbutils.widgets.text("state", STATE_DEFAULT, "Registry state file")  # noqa: F821
+dbutils.widgets.text("package", PACKAGE_URL, "Registry package URL or file")  # noqa: F821
+dbutils.widgets.text("csv", CSV_URL, "Published CSV URL or file")  # noqa: F821
 
 catalog = dbutils.widgets.get("catalog")  # noqa: F821
 schema = dbutils.widgets.get("schema")  # noqa: F821
 state = dbutils.widgets.get("state")  # noqa: F821
+package = dbutils.widgets.get("package")  # noqa: F821
+csv = dbutils.widgets.get("csv")  # noqa: F821
 daily_table = f"{catalog}.{schema}.{DAILY}"
 silver_table = f"{catalog}.{schema}.{SILVER}"
 
 # COMMAND ----------
 
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{catalog}`.`{schema}`")  # noqa: F821
-print(run(PACKAGE_URL, CSV_URL, daily_table, Path(state), spark=spark))  # noqa: F821
+print(run(package, csv, daily_table, Path(state), spark=spark))  # noqa: F821
 
 # COMMAND ----------
 

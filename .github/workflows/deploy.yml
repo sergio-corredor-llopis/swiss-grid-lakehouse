@@ -1,7 +1,7 @@
 name: Deploy
 on:
   push: {tags: ["v*"]}
-  workflow_dispatch: {inputs: {run_job: {type: boolean, default: false}}}
+  workflow_dispatch: {inputs: {run_job: {type: boolean, default: false}, azure_second_run: {type: boolean, default: false}}}
 permissions: {contents: read}
 concurrency: {group: deploy-dev, cancel-in-progress: false}
 jobs:
@@ -30,3 +30,54 @@ jobs:
       - run: databricks bundle deploy -t dev
       - if: inputs.run_job
         run: databricks bundle run -t dev ch_load | tee -a "$GITHUB_STEP_SUMMARY"
+  deploy-azure:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: azure
+    permissions: {contents: read, id-token: write}
+    defaults: {run: {shell: bash}}
+    env:
+      DATABRICKS_AUTH_TYPE: github-oidc
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+      BUNDLE_VAR_azure_host: ${{ vars.DATABRICKS_HOST }}
+      CATALOG: ${{ vars.DATABRICKS_CATALOG || 'workspace' }}
+      SCHEMA: swiss_grid
+    steps:
+      - uses: actions/checkout@v6
+      - uses: databricks/setup-cli@v1.18.0
+      - run: echo "OUT_DIR=$RUNNER_TEMP/azure_run" >> "$GITHUB_ENV"
+      - id: gate
+        env: {H: "${{ vars.DATABRICKS_HOST }}", C: "${{ vars.DATABRICKS_CLIENT_ID }}"}
+        run: bash scripts/has_azure.sh >> "$GITHUB_OUTPUT"
+      - if: steps.gate.outputs.ok == 'true'
+        run: databricks bundle validate -t azure --var catalog="$CATALOG"
+      - if: steps.gate.outputs.ok == 'true'
+        run: databricks bundle deploy -t azure --var catalog="$CATALOG"
+      - name: Copy the recorded input files into the Volume
+        if: steps.gate.outputs.ok == 'true'
+        run: |
+          for f in entsoe_ch_load_2026-08-30.xml swissgrid_ch_energy_2026-08-30.csv ogd103_2026-08-30_31.csv ckan_package_show_2026-09-29.json; do
+            databricks fs cp "tests/fixtures/$f" "dbfs:/Volumes/$CATALOG/$SCHEMA/raw/$f" --overwrite
+          done
+      - name: Run the job
+        if: steps.gate.outputs.ok == 'true'
+        run: |
+          mkdir -p "$OUT_DIR"
+          databricks bundle run -t azure ch_load_azure --var catalog="$CATALOG" | tee "$OUT_DIR/run1.txt"
+      - name: Run the job a second time
+        if: steps.gate.outputs.ok == 'true' && inputs.azure_second_run
+        run: databricks bundle run -t azure ch_load_azure --var catalog="$CATALOG" | tee "$OUT_DIR/run2.txt"
+      - name: Upload the job output
+        if: always() && steps.gate.outputs.ok == 'true'
+        uses: actions/upload-artifact@v4
+        with: {name: azure-run-output, path: "${{ runner.temp }}/azure_run", if-no-files-found: warn}
+      - name: Append the job output to the step summary
+        if: always() && steps.gate.outputs.ok == 'true'
+        run: |
+          for f in "$OUT_DIR"/run*.txt; do
+            [ -f "$f" ] || continue
+            printf '### %s\n\n```\n' "$(basename "$f")" >> "$GITHUB_STEP_SUMMARY"
+            cat "$f" >> "$GITHUB_STEP_SUMMARY"
+            printf '```\n\n' >> "$GITHUB_STEP_SUMMARY"
+          done

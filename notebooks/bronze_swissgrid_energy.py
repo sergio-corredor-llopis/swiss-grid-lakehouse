@@ -39,6 +39,14 @@ TABLE = "swissgrid_energy_bronze"
 
 # COMMAND ----------
 
+try:
+    environment_version = spark.conf.get("spark.databricks.environment.version")  # noqa: F821
+except Exception:
+    environment_version = "not recorded"
+print(f"RUN spark_version={spark.version} environment_version={environment_version}")  # noqa: F821
+
+# COMMAND ----------
+
 dbutils.widgets.text("source", "", "Workbook or CSV (Volume path)")  # noqa: F821
 dbutils.widgets.text("catalog", "workspace", "Target catalog")  # noqa: F821
 dbutils.widgets.text("schema", "swiss_grid", "Target schema")  # noqa: F821
