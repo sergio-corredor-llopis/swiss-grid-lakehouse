@@ -4,7 +4,6 @@ variables:
   schema:  {description: Target schema, default: swiss_grid}
   source:  {description: "Volume path of an XML file, or api",
             default: /Volumes/workspace/swiss_grid/raw/entsoe_ch_load_sample.xml}
-  azure_host: {description: "Workspace URL of the Azure Databricks target (set at deploy time, never committed)"}
   raw_volume: {description: "Unity Catalog Volume that holds the recorded input files",
                default: "/Volumes/${var.catalog}/${var.schema}/raw"}
 resources:
@@ -22,8 +21,6 @@ resources:
 targets:
   dev: {mode: development, default: true}
   azure:
-    workspace:
-      host: ${var.azure_host}
     resources:
       jobs:
         ch_load_azure:

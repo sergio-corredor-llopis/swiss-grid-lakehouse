@@ -10,8 +10,8 @@ separately. Nothing below reports a result.
 
 `databricks.yml` holds a second target, `azure`, next to `dev`. The `dev` target
 and the `ch-load` job are unchanged, so the Free Edition path still works as
-before. The `azure` target takes the workspace URL from the bundle variable
-`azure_host`, which is set at deploy time and never committed, and deploys one job,
+before. The `azure` target takes the workspace URL from the `DATABRICKS_HOST`
+environment variable, set at deploy time and never committed, and deploys one job,
 `ch-load-azure`, on serverless compute (no cluster is declared). Its four tasks:
 
 1. `bronze_entsoe` writes the ENTSO-E hourly load to a Bronze table.

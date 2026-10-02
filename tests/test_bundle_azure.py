@@ -21,10 +21,10 @@ def test_top_level_job_keeps_bronze_and_silver():
     assert [t["task_key"] for t in tasks] == ["bronze", "silver"]
 
 
-def test_azure_host_comes_from_variable():
-    assert AZURE["workspace"] == {"host": "${var.azure_host}"}
-    assert "azure_host" in BUNDLE["variables"]
-    assert "default" not in BUNDLE["variables"]["azure_host"]
+def test_azure_host_is_never_committed():
+    # workspace.host may not interpolate a variable; DATABRICKS_HOST sets it at run time.
+    assert "host" not in AZURE.get("workspace", {})
+    assert "azure_host" not in BUNDLE["variables"]
     text = (REPO_ROOT / "databricks.yml").read_text(encoding="utf-8").lower()
     assert "https://" not in text
     assert HOST_FRAGMENT not in text

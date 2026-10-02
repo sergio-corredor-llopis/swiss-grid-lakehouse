@@ -40,7 +40,6 @@ jobs:
       DATABRICKS_AUTH_TYPE: github-oidc
       DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
       DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
-      BUNDLE_VAR_azure_host: ${{ vars.DATABRICKS_HOST }}
       CATALOG: ${{ vars.DATABRICKS_CATALOG || 'workspace' }}
       SCHEMA: swiss_grid
     steps:
