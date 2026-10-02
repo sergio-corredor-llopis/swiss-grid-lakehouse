@@ -211,8 +211,12 @@ principal: no token is stored.
 What exists and is checked offline: the bundle schema of the target, a test that
 `dev` is unchanged, the gate script of the workflow, and a renderer that turns the
 job output into a run summary and exits non-zero if the output holds a host name,
-a token or a GUID. What is not done: the job has not been run on an Azure
-workspace. The first run is recorded separately. Setup, the exact commands, what
+a token or a GUID. <!-- run:begin -->
+A run of the whole pipeline on an Azure Databricks workspace in Switzerland North on
+2026-10-02 is recorded in [docs/runs/azure_2026-10-02.md](docs/runs/azure_2026-10-02.md):
+the first run wrote 48 and 384 Bronze rows and passed both gates, the daily compare
+and the three reconciliations; a second run the same day inserted no rows.
+<!-- run:end --> Setup, the exact commands, what
 only a workspace can prove and the teardown:
 [Azure walkthrough](docs/walkthrough/azure.md).
 <!-- azure:end -->
@@ -220,14 +224,14 @@ only a workspace can prove and the teardown:
 ## Roadmap
 
 Built: ingest, Bronze and Silver for both sources, the hourly comparison and the
-daily control totals (Spark and Delta, run locally and in CI). Built but not yet
-run: the `azure` bundle target.
+daily control totals (Spark and Delta, run locally and in CI). Built and run once on
+an Azure Databricks workspace: the `azure` bundle target (recorded run of 2026-10-02).
 
 Planned, not implemented:
 
 1. Done: the ENTSO-E Bronze and Silver notebooks ran on Databricks Free Edition
-   on 2026-09-27 (recorded below). Next: run the `azure` target on an Azure
-   Databricks workspace and record that run.
+   on 2026-09-27 (recorded below). Done: the `azure` target ran on an Azure
+   Databricks workspace on 2026-10-02 (recorded in `docs/runs/`). Next: the Gold layer.
 2. Gold layer: dbt-databricks models, with `OPTIMIZE` / `Z-ORDER` and Delta time
    travel.
 3. Orchestration with Databricks Workflows or Airflow, and a Streamlit view.
