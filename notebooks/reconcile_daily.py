@@ -29,6 +29,7 @@ from pathlib import Path
 
 from swiss_grid_lakehouse.daily.ogd_client import run
 from swiss_grid_lakehouse.reconcile import exit_code, reconcile
+from swiss_grid_lakehouse.report_lines import ReportLines
 from swiss_grid_lakehouse.silver.daily_rollup import SOURCES, rollup_daily
 
 DAILY = "ch_consumption_daily_bronze"
@@ -38,6 +39,7 @@ PACKAGE_URL = (
     "?id=energiedashboard-ch-landesverbrauch-und-endverbrauch"
 )
 CSV_URL = "https://www.bfe-ogd.ch/ogd103_stromverbrauch_swissgrid_lv_und_endv.csv"
+out = ReportLines()
 
 # COMMAND ----------
 
@@ -45,7 +47,7 @@ try:
     environment_version = spark.conf.get("spark.databricks.environment.version")  # noqa: F821
 except Exception:
     environment_version = "not recorded"
-print(f"RUN spark_version={spark.version} environment_version={environment_version}")  # noqa: F821
+out.print(f"RUN spark_version={spark.version} environment_version={environment_version}")  # noqa: F821
 
 # COMMAND ----------
 
@@ -67,7 +69,7 @@ silver_table = f"{catalog}.{schema}.{SILVER}"
 # COMMAND ----------
 
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{catalog}`.`{schema}`")  # noqa: F821
-print(run(package, csv, daily_table, Path(state), spark=spark))  # noqa: F821
+out.print(run(package, csv, daily_table, Path(state), spark=spark))  # noqa: F821
 
 # COMMAND ----------
 
@@ -82,6 +84,10 @@ daily_rows = [r.asDict() for r in spark.table(daily_table).select(*daily_cols).c
 
 results = reconcile(rollups, daily_rows)
 for result in results:
-    print("\n".join(result.lines()))
+    out.print("\n".join(result.lines()))
 if exit_code(results) != 0:
     raise RuntimeError("RECONCILE failed: a final day is beyond tolerance, or no overlap")
+
+# COMMAND ----------
+
+out.exit(globals().get("dbutils"))

@@ -104,6 +104,11 @@ python scripts/render_run_summary.py run1.txt --date <YYYY-MM-DD> --region "Swit
 ```
 
 The artifact holds `run1.txt` (and `run2.txt` when the second run was requested).
+`databricks bundle run` shows the text a notebook returns with `dbutils.notebook.exit` and
+none of its `print` output, so each notebook ends by returning the report lines it
+printed; `run1.txt` therefore holds, under each `Task <name>:` header, the `RUN`, row
+count, `GATE`, `merged`, `HOURLY`, `COMPARE`, `DAY` and `RECONCILE` lines, and the
+renderer reads that format.
 The record is `docs/runs/azure_<YYYY-MM-DD>.md`; it is added in a separate change
 after a run exists, together with a sentence in the README.
 

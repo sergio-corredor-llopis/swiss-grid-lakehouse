@@ -23,9 +23,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from swiss_grid_lakehouse.bronze import to_bronze_rows, write_bronze
+from swiss_grid_lakehouse.report_lines import ReportLines
 
 TABLE = "entsoe_ch_load_bronze"
 CH_AREA = "10YCH-SWISSGRIDZ"
+out = ReportLines()
 
 # COMMAND ----------
 
@@ -33,7 +35,7 @@ try:
     environment_version = spark.conf.get("spark.databricks.environment.version")  # noqa: F821
 except Exception:
     environment_version = "not recorded"
-print(f"RUN spark_version={spark.version} environment_version={environment_version}")  # noqa: F821
+out.print(f"RUN spark_version={spark.version} environment_version={environment_version}")  # noqa: F821
 
 # COMMAND ----------
 
@@ -72,8 +74,12 @@ target = f"{catalog}.{schema}.{TABLE}"
 
 rows = to_bronze_rows(xml_text, source_name, datetime.now(UTC))
 written = write_bronze(spark, rows, target)  # noqa: F821
-print(f"{'wrote' if written else 'skipped'} {len(rows)} rows to {target} batch_id={rows[0][3]}")
+out.print(f"{'wrote' if written else 'skipped'} {len(rows)} rows to {target} batch_id={rows[0][3]}")
 
 # COMMAND ----------
 
 display(spark.table(target).limit(10))  # noqa: F821
+
+# COMMAND ----------
+
+out.exit(globals().get("dbutils"))

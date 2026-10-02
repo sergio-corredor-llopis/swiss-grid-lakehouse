@@ -133,3 +133,46 @@ def test_missing_option_exits_2():
 
 def test_bad_date_exits_2():
     assert run([str(CLEAN), "--date", "yesterday", "--region", "test"]).returncode == 2
+
+
+BUNDLE_RUN = ROOT / "tests" / "fixtures" / "azure_run1_expected.txt"
+BUNDLE_EMPTY = "Output:\n=======\nTask bronze_swissgrid:\n\n=======\nTask silver:\n\n"
+KEPT = ("RUN ", "GATE:", "merged ", "HOURLY", "COMPARE", "DAY ", "RECONCILE")
+
+
+def test_bundle_run_output_keeps_every_report_line_verbatim():
+    result = render(BUNDLE_RUN)
+    assert result.returncode == 0
+    kept = [
+        line
+        for line in BUNDLE_RUN.read_text(encoding="utf-8").splitlines()
+        if line.startswith(KEPT) or line.split(": ", 1)[-1].startswith(("GATE:", "merged "))
+    ]
+    assert len([x for x in kept if x.startswith("RUN ")]) == 4
+    assert len(kept) == 4 + 4 + 2 + 1 + 9  # RUN, GATE+merged, HOURLY, COMPARE, DAY+RECONCILE
+    shown = result.stdout.splitlines()
+    for line in kept:
+        assert line in shown
+    for header in ("Task bronze_swissgrid:", "Task bronze_entsoe:", "Task silver:"):
+        assert header in shown
+    assert "Task reconcile:" in shown
+    assert "- spark.version: 4.0.0" in shown
+    assert "- Serverless environment version: 3" in shown
+
+
+def test_bundle_run_without_report_lines_renders_no_blocks(tmp_path):
+    source = tmp_path / "out.txt"
+    source.write_text(BUNDLE_EMPTY, encoding="utf-8")
+    result = render(source)
+    assert result.returncode == 0
+    assert fenced_blocks(result.stdout) == []
+
+
+def test_bundle_run_with_a_leak_exits_3(tmp_path):
+    source = tmp_path / "out.txt"
+    text = BUNDLE_RUN.read_text(encoding="utf-8")
+    source.write_text(text + "note " + FAKE_LEAKS["workspace-id"] + "\n", encoding="utf-8")
+    result = render(source)
+    assert result.returncode == 3
+    assert result.stdout.strip() == "LEAK: workspace-id at line %d" % (len(text.splitlines()) + 1)
+    assert "GATE" not in result.stdout
