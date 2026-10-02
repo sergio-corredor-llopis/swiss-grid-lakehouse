@@ -1,0 +1,14 @@
+2026-09-27, Databricks Free Edition, serverless compute, catalog workspace, schema swiss_grid
+
+bronze_entsoe_ch_load, first run (14:33:06):
+wrote 48 rows to workspace.swiss_grid.entsoe_ch_load_bronze batch_id=3a7ceaa73409b117
+bronze_entsoe_ch_load, second run (14:33:57):
+skipped 48 rows to workspace.swiss_grid.entsoe_ch_load_bronze batch_id=3a7ceaa73409b117
+
+silver_ch_load, first run (14:34:55):
+GATE: PASS checks=6
+merged inserted=48 updated=0 rows=48
+
+silver_ch_load, second run (14:36:11):
+GATE: PASS checks=6
+merged inserted=0 updated=0 rows=48

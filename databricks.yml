@@ -4,6 +4,9 @@ variables:
   schema:  {description: Target schema, default: swiss_grid}
   source:  {description: "Volume path of an XML file, or api",
             default: /Volumes/workspace/swiss_grid/raw/entsoe_ch_load_sample.xml}
+  azure_host: {description: "Workspace URL of the Azure Databricks target (set at deploy time, never committed)"}
+  raw_volume: {description: "Unity Catalog Volume that holds the recorded input files",
+               default: "/Volumes/${var.catalog}/${var.schema}/raw"}
 resources:
   jobs:
     ch_load:
@@ -18,3 +21,45 @@ resources:
             base_parameters: {catalog: "${var.catalog}", schema: "${var.schema}"}}
 targets:
   dev: {mode: development, default: true}
+  azure:
+    workspace:
+      host: ${var.azure_host}
+    resources:
+      jobs:
+        ch_load_azure:
+          name: ch-load-azure
+          tasks:
+            - task_key: bronze_entsoe
+              notebook_task:
+                notebook_path: ./notebooks/bronze_entsoe_ch_load.py
+                base_parameters:
+                  source: "${var.raw_volume}/entsoe_ch_load_2026-08-30.xml"
+                  catalog: "${var.catalog}"
+                  schema: "${var.schema}"
+            - task_key: bronze_swissgrid
+              notebook_task:
+                notebook_path: ./notebooks/bronze_swissgrid_energy.py
+                base_parameters:
+                  source: "${var.raw_volume}/swissgrid_ch_energy_2026-08-30.csv"
+                  catalog: "${var.catalog}"
+                  schema: "${var.schema}"
+            - task_key: silver
+              depends_on:
+                - task_key: bronze_entsoe
+                - task_key: bronze_swissgrid
+              notebook_task:
+                notebook_path: ./notebooks/silver_ch_load.py
+                base_parameters:
+                  catalog: "${var.catalog}"
+                  schema: "${var.schema}"
+            - task_key: reconcile
+              depends_on:
+                - task_key: silver
+              notebook_task:
+                notebook_path: ./notebooks/reconcile_daily.py
+                base_parameters:
+                  catalog: "${var.catalog}"
+                  schema: "${var.schema}"
+                  package: "${var.raw_volume}/ckan_package_show_2026-09-29.json"
+                  csv: "${var.raw_volume}/ogd103_2026-08-30_31.csv"
+                  state: "${var.raw_volume}/reconcile_state.json"

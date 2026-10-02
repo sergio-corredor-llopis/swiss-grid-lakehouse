@@ -35,6 +35,14 @@ CHECKS = 6  # row checks (4) + missing hours + row count
 
 # COMMAND ----------
 
+try:
+    environment_version = spark.conf.get("spark.databricks.environment.version")  # noqa: F821
+except Exception:
+    environment_version = "not recorded"
+print(f"RUN spark_version={spark.version} environment_version={environment_version}")  # noqa: F821
+
+# COMMAND ----------
+
 dbutils.widgets.text("sources", "entsoe,swissgrid", "Sources (comma-separated)")  # noqa: F821
 dbutils.widgets.text("catalog", "workspace", "Catalog")  # noqa: F821
 dbutils.widgets.text("schema", "swiss_grid", "Schema")  # noqa: F821

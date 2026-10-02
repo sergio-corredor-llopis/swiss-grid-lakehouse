@@ -17,8 +17,11 @@ named `swiss-grid-lakehouse`:
 - one job, `ch-load`, with two tasks on serverless compute: `bronze` runs
   `notebooks/bronze_entsoe_ch_load.py`, then `silver` runs
   `notebooks/silver_ch_load.py` after it. The variables are passed to the
-  notebooks as parameters;
-- one target, `dev`, in development mode and the default target.
+  notebooks as parameters. This job has no Swissgrid Bronze task, so it loads the
+  ENTSO-E source only;
+- one target, `dev`, in development mode and the default target;
+- a second target, `azure`, with its own job that covers both sources and the
+  daily reconcile, described in [Azure Databricks](azure.md).
 
 The job that was started by hand in the Databricks UI is now this file.
 
@@ -38,10 +41,11 @@ The job that was started by hand in the Databricks UI is now this file.
    databricks volumes create workspace swiss_grid raw MANAGED
    ```
 
-4. The sample XML in the Volume, at the path the `source` variable points to:
+4. The recorded ENTSO-E XML in the Volume, under the file name the default of
+   the `source` variable expects:
 
    ```sh
-   databricks fs cp tests/fixtures/entsoe_ch_load_sample.xml \
+   databricks fs cp tests/fixtures/entsoe_ch_load_2026-08-30.xml \
      dbfs:/Volumes/workspace/swiss_grid/raw/entsoe_ch_load_sample.xml
    ```
 
