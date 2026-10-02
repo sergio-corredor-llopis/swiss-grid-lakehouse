@@ -24,6 +24,7 @@
 from datetime import UTC, datetime
 
 from swiss_grid_lakehouse.compare.__main__ import build_report
+from swiss_grid_lakehouse.report_lines import ReportLines
 from swiss_grid_lakehouse.silver.__main__ import _current_count, _write_rejected
 from swiss_grid_lakehouse.silver.ch_load_silver import merge_silver, to_silver
 from swiss_grid_lakehouse.silver.quality import run_gate
@@ -32,6 +33,7 @@ from swiss_grid_lakehouse.silver.swissgrid_hourly import to_hourly
 BRONZE = {"entsoe": "entsoe_ch_load_bronze", "swissgrid": "swissgrid_energy_bronze"}
 SILVER = "ch_load_silver"
 CHECKS = 6  # row checks (4) + missing hours + row count
+out = ReportLines()
 
 # COMMAND ----------
 
@@ -39,7 +41,7 @@ try:
     environment_version = spark.conf.get("spark.databricks.environment.version")  # noqa: F821
 except Exception:
     environment_version = "not recorded"
-print(f"RUN spark_version={spark.version} environment_version={environment_version}")  # noqa: F821
+out.print(f"RUN spark_version={spark.version} environment_version={environment_version}")  # noqa: F821
 
 # COMMAND ----------
 
@@ -65,13 +67,13 @@ for name in sources:
         silver = to_silver(bronze)
     result = run_gate(silver, _current_count(spark, silver_table, name))  # noqa: F821
     if not result.passed:
-        print(f"{name}: {result.summary()}")
+        out.print(f"{name}: {result.summary()}")
         _write_rejected(result.rejected_df, silver_table)
         raise RuntimeError(f"quality gate failed for {name}, nothing merged: {result.summary()}")
-    print(f"{name}: {result.summary()} checks={CHECKS}")
+    out.print(f"{name}: {result.summary()} checks={CHECKS}")
     inserted, updated = merge_silver(spark, silver, silver_table)  # noqa: F821
     rows = _current_count(spark, silver_table, name)  # noqa: F821
-    print(f"{name}: merged inserted={inserted} updated={updated} rows={rows}")
+    out.print(f"{name}: merged inserted={inserted} updated={updated} rows={rows}")
 
 # COMMAND ----------
 
@@ -88,10 +90,14 @@ if {"entsoe", "swissgrid"} <= set(sources):
     report = build_report(pairs)
     for line in report.lines():
         if line.startswith(("HOURLY", "COMPARE")):
-            print(line)
+            out.print(line)
 else:
-    print("COMPARE skipped: `sources` must contain both entsoe and swissgrid")
+    out.print("COMPARE skipped: `sources` must contain both entsoe and swissgrid")
 
 # COMMAND ----------
 
 display(spark.sql(f"DESCRIBE HISTORY {silver_table}"))  # noqa: F821
+
+# COMMAND ----------
+
+out.exit(globals().get("dbutils"))

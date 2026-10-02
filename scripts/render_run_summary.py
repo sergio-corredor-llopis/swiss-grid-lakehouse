@@ -7,7 +7,9 @@ Usage: python scripts/render_run_summary.py INPUT --date YYYY-MM-DD --region TEX
 The summary holds the date, the region, the Spark version from a printed
 `RUN spark_version=<v> ...` line, the serverless environment version when one
 is printed, and the per-run lines (row counts, GATE, merged, HOURLY, COMPARE,
-DAY and RECONCILE) verbatim, each in a fenced block.
+DAY and RECONCILE) verbatim, each in a fenced block. A section starts at a line
+`<name> (hh:mm:ss):` or at a `Task <name>:` line of `databricks bundle run`; in the
+second form the `RUN` line of each task is kept in its block.
 
 Before anything is printed, every line is checked for a workspace host, an
 access token or a GUID. On a match the script prints `LEAK: <name> at line <n>`
@@ -35,9 +37,10 @@ LEAK_PATTERNS = (
 RUN_LINE = re.compile(r"^\s*RUN\s")
 SPARK_VERSION = re.compile(r"\bspark_version=(\S+)")
 ENV_VERSION = re.compile(r"\b(?:serverless_)?environment_version=(\S+)")
-SECTION = re.compile(r"^\S.*\(\d{2}:\d{2}:\d{2}\):\s*$")
+SECTION = re.compile(r"^\S.*\(\d{2}:\d{2}:\d{2}\):\s*$|^Task \S+:\s*$")
 KEEP = re.compile(
-    r"^\s*(?:wrote \d+ rows|skipped \d+ rows|GATE:|merged\s|HOURLY\b|COMPARE\b|DAY\b|RECONCILE\b)"
+    r"^\s*(?:\w+:\s+)?"
+    r"(?:wrote \d+ rows|skipped \d+ rows|GATE:|merged\s|HOURLY\b|COMPARE\b|DAY\b|RECONCILE\b)"
 )
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -66,6 +69,8 @@ def blocks(lines):
     result, current = [], []
     for line in lines:
         if RUN_LINE.match(line):
+            if current:
+                current.append(line.rstrip())
             continue
         if SECTION.match(line):
             if current:

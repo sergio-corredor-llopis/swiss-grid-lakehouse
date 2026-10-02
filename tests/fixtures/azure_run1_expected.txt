@@ -1,0 +1,35 @@
+Output:
+=======
+Task bronze_swissgrid:
+RUN spark_version=4.0.0 environment_version=3
+skipped 384 rows to dbw_swiss_grid.swiss_grid.swissgrid_energy_bronze batch_id=06a51af7cf3f9195
+
+=======
+Task bronze_entsoe:
+RUN spark_version=4.0.0 environment_version=3
+skipped 48 rows to dbw_swiss_grid.swiss_grid.entsoe_ch_load_bronze batch_id=271784dc3d00b152
+
+=======
+Task silver:
+RUN spark_version=4.0.0 environment_version=3
+entsoe: GATE: PASS checks=6
+entsoe: merged inserted=0 updated=0 rows=48
+swissgrid: GATE: PASS checks=6
+swissgrid: merged inserted=0 updated=0 rows=48
+HOURLY total: min -23.21 median -1.34 max 36.26 (n=48, percent)
+HOURLY end-user: min -38.19 median -17.70 max 11.05 (n=48, percent)
+COMPARE days=2 hours=48 daily_max_abs_pct=2.47 tol=3 PASS
+
+=======
+Task reconcile:
+RUN spark_version=4.0.0 environment_version=3
+DAY 2026-08-30 source=swissgrid series=total pipeline_gwh=149.47 published_gwh=149.00 diff_pct=0.31 hours=24 status=PRELIMINARY
+DAY 2026-08-31 source=swissgrid series=total pipeline_gwh=160.25 published_gwh=149.00 diff_pct=7.55 hours=24 status=PRELIMINARY
+RECONCILE source=swissgrid series=total published=landesverbrauch days=2 pipeline_gwh=309.72 published_gwh=298.00 diff_pct=3.93 tol=6.5 preliminary=2 final=0 PASS
+DAY 2026-08-30 source=swissgrid series=enduser pipeline_gwh=109.73 published_gwh=110.00 diff_pct=-0.24 hours=24 status=PRELIMINARY
+DAY 2026-08-31 source=swissgrid series=enduser pipeline_gwh=134.76 published_gwh=125.00 diff_pct=7.81 hours=24 status=PRELIMINARY
+RECONCILE source=swissgrid series=enduser published=endverbrauch days=2 pipeline_gwh=244.49 published_gwh=235.00 diff_pct=4.04 tol=6.5 preliminary=2 final=0 PASS
+DAY 2026-08-30 source=entsoe series=total pipeline_gwh=146.69 published_gwh=149.00 diff_pct=-1.55 hours=24 status=PRELIMINARY
+DAY 2026-08-31 source=entsoe series=total pipeline_gwh=156.39 published_gwh=149.00 diff_pct=4.96 hours=24 status=PRELIMINARY
+RECONCILE source=entsoe series=total published=landesverbrauch days=2 pipeline_gwh=303.08 published_gwh=298.00 diff_pct=1.71 tol=5 preliminary=2 final=0 PASS
+
