@@ -1,0 +1,17 @@
+gold_marts, first run (10:12:00):
+SKIPPED gold_daily_control reason=no_daily_bronze
+GOLD GATE: PASS checks=4 skipped=1
+MART g1 rows=4 inserted=4 updated=0
+MART g3 rows=96 inserted=96 updated=0
+MART g4 rows=4 inserted=4 updated=0
+OPTIMIZE table=g3 files_removed=0 files_added=0
+VERSION table=g1 v=0 rows=4 now=4
+
+gold_marts, second run (10:13:30):
+SKIPPED gold_daily_control reason=no_daily_bronze
+GOLD GATE: PASS checks=4 skipped=1
+MART g1 rows=4 inserted=0 updated=0
+MART g3 rows=96 inserted=0 updated=0
+MART g4 rows=4 inserted=0 updated=0
+OPTIMIZE table=g3 refused reason=zorder_not_supported
+VERSION table=g1 v=0 rows=4 now=4

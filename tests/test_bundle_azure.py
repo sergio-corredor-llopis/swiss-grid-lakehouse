@@ -16,9 +16,13 @@ def test_dev_target_unchanged():
     assert BUNDLE["targets"]["dev"] == {"mode": "development", "default": True}
 
 
-def test_top_level_job_keeps_bronze_and_silver():
+def test_top_level_job_has_bronze_silver_and_gold():
     tasks = BUNDLE["resources"]["jobs"]["ch_load"]["tasks"]
-    assert [t["task_key"] for t in tasks] == ["bronze", "silver"]
+    assert [t["task_key"] for t in tasks] == ["bronze", "silver", "gold"]
+    gold = tasks[2]
+    assert [d["task_key"] for d in gold["depends_on"]] == ["silver"]
+    assert gold["notebook_task"]["notebook_path"] == "./notebooks/gold_marts.py"
+    assert set(gold["notebook_task"]["base_parameters"]) == {"catalog", "schema"}
 
 
 def test_azure_host_is_never_committed():
@@ -30,10 +34,10 @@ def test_azure_host_is_never_committed():
     assert HOST_FRAGMENT not in text
 
 
-def test_azure_job_has_four_tasks_in_order():
+def test_azure_job_has_five_tasks_in_order():
     assert len(AZURE["resources"]["jobs"]) == 1
     keys = [t["task_key"] for t in AZURE_TASKS]
-    assert keys == ["bronze_entsoe", "bronze_swissgrid", "silver", "reconcile"]
+    assert keys == ["bronze_entsoe", "bronze_swissgrid", "silver", "reconcile", "gold"]
 
 
 def test_azure_job_dependencies():
@@ -42,6 +46,15 @@ def test_azure_job_dependencies():
     assert deps["bronze_swissgrid"] == []
     assert sorted(deps["silver"]) == ["bronze_entsoe", "bronze_swissgrid"]
     assert deps["reconcile"] == ["silver"]
+    assert deps["gold"] == ["reconcile"]
+
+
+def test_gold_task_is_the_same_notebook_on_both_jobs():
+    top = BUNDLE["resources"]["jobs"]["ch_load"]["tasks"][2]
+    azure = AZURE_TASKS[-1]
+    assert top["task_key"] == azure["task_key"] == "gold"
+    assert top["notebook_task"] == azure["notebook_task"]
+    assert top["depends_on"] != azure["depends_on"]
 
 
 def test_azure_job_is_serverless():

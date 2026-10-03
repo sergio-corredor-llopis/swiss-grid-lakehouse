@@ -6,7 +6,7 @@ written to an append-only Bronze Delta table with Spark. A Silver layer
 deduplicates it, runs a data-quality gate and merges it into a second Delta
 table with `MERGE`. A compare command then puts the two publishers side by side.
 It is tested against real recorded data and checked by CI on every push. Bronze,
-Silver and the comparison are built; Gold is not. A bundle target for Azure
+Silver, the comparison and four Gold marts are built. A bundle target for Azure
 Databricks is defined and checked offline; it has not been run yet.
 
 Author: Sergio Corredor, data engineer.
@@ -119,7 +119,7 @@ calls the same `write_bronze`, and `notebooks/silver_ch_load.py` calls the same
 Silver functions. Two more notebooks cover the Swissgrid Bronze table and the daily
 reconcile. The ENTSO-E Bronze and Silver notebooks ran on Databricks Free Edition
 on 2026-09-27 (output recorded below); the Swissgrid Bronze and reconcile notebooks
-have not been run on a workspace. No dbt or Terraform code is in this repository.
+have not been run on a workspace. No Terraform code is in this repository.
 
 ## Data sources and attribution
 
@@ -195,6 +195,40 @@ CI and deploy are separate. `databricks.yml` defines the job `ch-load` for the d
 
 Step by step, including the one-time setup: [deploy walkthrough](docs/walkthrough/deploy.md).
 
+<!-- gold:begin -->
+## Gold marts
+
+Gold is four small Delta tables built from Silver with PySpark and Spark SQL: daily
+load per Swiss day (`gold_daily_load`), the daily control against the published
+figure (`gold_daily_control`), the typical load by weekday and hour
+(`gold_hourly_profile`) and the data quality per day (`gold_data_quality`). Each is
+written with a Delta `MERGE` that updates a row only when a value changed, so a
+second run prints `inserted=0 updated=0`. The command also runs
+`OPTIMIZE ... ZORDER BY` on the hourly profile and reads version 0 of the daily
+load back with `VERSION AS OF`. Run it on the recorded files, after the Silver
+commands above have written `/tmp/lh/silver`:
+
+```sh
+python -m swiss_grid_lakehouse.gold --silver /tmp/lh/silver --target /tmp/lh/gold
+```
+
+Without `--daily` the control mart is skipped and the command prints
+`SKIPPED gold_daily_control reason=no_daily_bronze` and
+`GOLD GATE: PASS checks=4 skipped=1`; with `--daily /tmp/lh/daily` it prints
+`GOLD GATE: PASS checks=5`. A failed gate merges nothing and exits 2. The same code
+runs as `notebooks/gold_marts.py`, a `gold` task in both bundle targets. The run
+of that task on Databricks Free Edition and on Azure is recorded separately; this
+repository does not claim it yet. Marts, output lines and the tests that pin them:
+[Gold marts](docs/walkthrough/gold.md).
+
+Data: Swissgrid is the source of the hourly figures; the Swissgrid dataset page
+URL: not found. The Swiss Federal Office of Energy (SFOE) dataset page
+https://opendata.swiss/en/dataset/energiedashboard-ch-landesverbrauch-und-endverbrauch
+is the source of the published daily figures.
+
+The Swissgrid terms are not assumed; the committed data is synthetic -- run the notebook on the real workbook.
+<!-- gold:end -->
+
 <!-- azure:begin -->
 ## Azure Databricks target
 
@@ -223,17 +257,20 @@ only a workspace can prove and the teardown:
 
 ## Roadmap
 
-Built: ingest, Bronze and Silver for both sources, the hourly comparison and the
-daily control totals (Spark and Delta, run locally and in CI). Built and run once on
+Built: ingest, Bronze and Silver for both sources, the hourly comparison, the
+daily control totals and the four Gold marts with `OPTIMIZE` and Delta time travel
+(Spark and Delta, run locally and in CI). Built and run once on
 an Azure Databricks workspace: the `azure` bundle target (recorded run of 2026-10-02).
 
 Planned, not implemented:
 
 1. Done: the ENTSO-E Bronze and Silver notebooks ran on Databricks Free Edition
    on 2026-09-27 (recorded below). Done: the `azure` target ran on an Azure
-   Databricks workspace on 2026-10-02 (recorded in `docs/runs/`). Next: the Gold layer.
-2. Gold layer: dbt-databricks models, with `OPTIMIZE` / `Z-ORDER` and Delta time
-   travel.
+   Databricks workspace on 2026-10-02 (recorded in `docs/runs/`).
+2. Done in code, run recorded separately: the Gold layer is PySpark with Spark SQL
+   (four marts, a Delta `MERGE`, `OPTIMIZE ... ZORDER BY` and `VERSION AS OF`),
+   described in the Gold marts section above. Next: run the `gold` task on
+   Databricks Free Edition and on Azure and record both runs.
 3. Orchestration with Databricks Workflows or Airflow, and a Streamlit view.
 4. Possible extensions: Terraform for an ADLS Gen2 storage target (the `azure`
    target uses managed tables in a workspace catalog and needs no storage

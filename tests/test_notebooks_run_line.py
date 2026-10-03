@@ -1,4 +1,4 @@
-"""The four notebooks print one RUN line and return their lines; reconcile has two widgets."""
+"""The five notebooks print one RUN line and return their lines; reconcile has two widgets."""
 
 import re
 from pathlib import Path
@@ -11,6 +11,7 @@ NAMES = [
     "bronze_swissgrid_energy",
     "silver_ch_load",
     "reconcile_daily",
+    "gold_marts",
 ]
 RUN_PRINT = re.compile(r'out\.print\(f"RUN spark_version=\{spark\.version\}[^"]*"\)')
 BARE_PRINT = re.compile(r"(?<![.\w])print\(")
@@ -77,3 +78,8 @@ def test_notebook_ends_by_returning_its_lines(name):
     last_cell = text.split("# COMMAND ----------")[-1].strip()
     assert last_cell == 'out.exit(globals().get("dbutils"))'
     assert text.count("out.exit(") == 1
+
+
+def test_gold_notebook_run_line_comes_before_the_widgets():
+    text = _text("gold_marts")
+    assert text.index("RUN spark_version=") < text.index('dbutils.widgets.text("catalog"')

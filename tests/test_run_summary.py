@@ -14,6 +14,7 @@ from leak_samples import LEAK_ORDER, SAMPLES, leak_output_text
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "render_run_summary.py"
 CLEAN = ROOT / "tests" / "fixtures" / "databricks_run_2026-09-27.txt"
+GOLD_SAMPLE = ROOT / "tests" / "fixtures" / "gold_run_sample.txt"
 
 FAKE_LEAKS = SAMPLES
 
@@ -97,6 +98,37 @@ def test_hourly_compare_and_reconcile_lines_are_kept(tmp_path):
     ):
         assert text in joined
     assert "noise line" not in result.stdout
+
+
+def test_gold_lines_are_kept_verbatim():
+    result = render(GOLD_SAMPLE)
+    assert result.returncode == 0
+    joined = fenced_blocks(result.stdout)
+    kept = "\n".join(joined).splitlines()
+    wanted = [line for line in GOLD_SAMPLE.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert kept == wanted
+    for kind in ("MART ", "SKIPPED ", "GOLD GATE:", "OPTIMIZE ", "VERSION "):
+        assert any(line.startswith(kind) for line in kept), kind
+
+
+def test_gold_sample_has_the_five_line_kinds_and_no_leak():
+    text = GOLD_SAMPLE.read_text(encoding="utf-8")
+    assert "MART g1 rows=4 inserted=4 updated=0" in text
+    assert "VERSION table=g1 v=0 rows=4 now=4" in text
+    assert "http" not in text
+
+
+def test_unrelated_lines_next_to_gold_lines_are_dropped(tmp_path):
+    source = tmp_path / "out.txt"
+    source.write_text(
+        "gold_marts (10:00:00):\nMART g1 rows=4 inserted=4 updated=0\nmartian noise\n"
+        "GOLD GATE: PASS checks=5\nOPTIMIZE table=g3 files_removed=3 files_added=1\n",
+        encoding="utf-8",
+    )
+    result = render(source)
+    assert result.returncode == 0
+    assert "martian noise" not in result.stdout
+    assert "OPTIMIZE table=g3 files_removed=3 files_added=1" in result.stdout
 
 
 @pytest.mark.parametrize("name", sorted(FAKE_LEAKS))
