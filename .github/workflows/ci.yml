@@ -64,3 +64,10 @@ jobs:
           grep -q "merged inserted=0 updated=0 rows=48" "$out/swissgrid_run2.txt"
       - name: Compare
         run: python -m swiss_grid_lakehouse.compare --silver "$RUNNER_TEMP/lakehouse/silver"
+      - name: Pipeline twice, run history
+        run: |
+          out="$RUNNER_TEMP/lakehouse_runs"
+          python -m swiss_grid_lakehouse.runs --times 2 --lake "$out" | tee "$RUNNER_TEMP/runs.txt"
+          test "$(grep -c '^RUN n=.* status=SUCCESS$' "$RUNNER_TEMP/runs.txt")" -eq 2
+          grep -q "merged inserted=0 updated=0" "$RUNNER_TEMP/runs.txt"
+          grep -q "^HISTORY runs=2 success=2 failed=0$" "$RUNNER_TEMP/runs.txt"

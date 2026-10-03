@@ -28,7 +28,7 @@
 from pathlib import Path
 
 from swiss_grid_lakehouse.daily.ogd_client import run
-from swiss_grid_lakehouse.reconcile import exit_code, reconcile
+from swiss_grid_lakehouse.reconcile import TIGHT_PCT, exit_code, reconcile
 from swiss_grid_lakehouse.report_lines import ReportLines
 from swiss_grid_lakehouse.silver.daily_rollup import SOURCES, rollup_daily
 
@@ -82,11 +82,23 @@ rollups = {source: rollup_daily(silver, source) for source in SOURCES}
 daily_cols = ["local_date", "national_gwh", "final_gwh", "registry_modified", "batch_id"]
 daily_rows = [r.asDict() for r in spark.table(daily_table).select(*daily_cols).collect()]  # noqa: F821
 
-results = reconcile(rollups, daily_rows)
-for result in results:
-    out.print("\n".join(result.lines()))
-if exit_code(results) != 0:
-    raise RuntimeError("RECONCILE failed: a final day is beyond tolerance, or no overlap")
+figures = {"reconcile_diff": None}
+try:
+    results = reconcile(rollups, daily_rows)
+    for result in results:
+        out.print("\n".join(result.lines()))
+    final_gaps = [
+        abs(day.diff_pct)
+        for result in results
+        if result.tol <= TIGHT_PCT
+        for day in result.days
+        if day.status in ("PASS", "FAIL") and day.diff_pct is not None
+    ]
+    figures["reconcile_diff"] = max(final_gaps, default=None)
+    if exit_code(results) != 0:
+        raise RuntimeError("RECONCILE failed: a final day is beyond tolerance, or no overlap")
+finally:
+    dbutils.jobs.taskValues.set(key="figures", value=figures)  # noqa: F821
 
 # COMMAND ----------
 

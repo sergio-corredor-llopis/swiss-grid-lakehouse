@@ -7,10 +7,11 @@ Usage: python scripts/render_run_summary.py INPUT --date YYYY-MM-DD --region TEX
 The summary holds the date, the region, the Spark version from a printed
 `RUN spark_version=<v> ...` line, the serverless environment version when one
 is printed, and the per-run lines (row counts, GATE, merged, HOURLY, COMPARE,
-DAY, RECONCILE, MART, SKIPPED, GOLD, OPTIMIZE and VERSION) verbatim, each in a fenced
-block. A section starts at a line
+DAY, RECONCILE, MART, SKIPPED, GOLD, OPTIMIZE, VERSION, and the RUN and HISTORY
+lines of the run ledger) verbatim, each in a fenced block. A section starts at a line
 `<name> (hh:mm:ss):` or at a `Task <name>:` line of `databricks bundle run`; in the
-second form the `RUN` line of each task is kept in its block.
+second form the `RUN spark_version=...` line of each task is kept in its block. A ledger
+line `RUN id=... status=...` (or `RUN n=1 id=...`) is kept like any other report line.
 
 Before anything is printed, every line is checked for a workspace host, an
 access token or a GUID. On a match the script prints `LEAK: <name> at line <n>`
@@ -35,14 +36,14 @@ LEAK_PATTERNS = (
     ),
 )
 
-RUN_LINE = re.compile(r"^\s*RUN\s")
+RUN_LINE = re.compile(r"^\s*RUN\s(?!(?:n=\d+\s+)?id=)")
 SPARK_VERSION = re.compile(r"\bspark_version=(\S+)")
 ENV_VERSION = re.compile(r"\b(?:serverless_)?environment_version=(\S+)")
 SECTION = re.compile(r"^\S.*\(\d{2}:\d{2}:\d{2}\):\s*$|^Task \S+:\s*$")
 KEEP = re.compile(
     r"^\s*(?:\w+:\s+)?"
     r"(?:wrote \d+ rows|skipped \d+ rows|GATE:|merged\s|HOURLY\b|COMPARE\b|DAY\b|RECONCILE\b"
-    r"|MART\b|SKIPPED\b|GOLD\b|OPTIMIZE\b|VERSION\b)"
+    r"|MART\b|SKIPPED\b|GOLD\b|OPTIMIZE\b|VERSION\b|RUN\b|HISTORY\b)"
 )
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
