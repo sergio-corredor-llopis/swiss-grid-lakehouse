@@ -75,6 +75,7 @@ target = f"{catalog}.{schema}.{TABLE}"
 rows = to_bronze_rows(xml_text, source_name, datetime.now(UTC))
 written = write_bronze(spark, rows, target)  # noqa: F821
 out.print(f"{'wrote' if written else 'skipped'} {len(rows)} rows to {target} batch_id={rows[0][3]}")
+dbutils.jobs.taskValues.set(key="figures", value={"bronze_rows": len(rows)})  # noqa: F821
 
 # COMMAND ----------
 

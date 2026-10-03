@@ -99,18 +99,27 @@ if marts["g2"] is None:
 
 result = run_gold_gate(silver, marts)
 out.print(result.summary())
-if not result.passed:
-    raise RuntimeError(f"Gold gate failed, nothing merged: {result.summary()}")
-
-# COMMAND ----------
-
-for short, df in marts.items():
-    if df is None:
-        continue
-    key, change_cols = keys[short]
-    target = f"{prefix}.{TABLES[short]}"
-    inserted, updated = merge_mart(spark, df, target, key, change_cols)  # noqa: F821
-    out.print(mart_line(short, read_table(TABLES[short]).count(), inserted, updated))
+figures = {
+    "gate": result.summary().removeprefix("GOLD GATE:").strip(),
+    "gold_inserted": None,
+    "gold_updated": None,
+}
+try:
+    if not result.passed:
+        raise RuntimeError(f"Gold gate failed, nothing merged: {result.summary()}")
+    gold_inserted = gold_updated = 0
+    for short, df in marts.items():
+        if df is None:
+            continue
+        key, change_cols = keys[short]
+        target = f"{prefix}.{TABLES[short]}"
+        inserted, updated = merge_mart(spark, df, target, key, change_cols)  # noqa: F821
+        gold_inserted += inserted
+        gold_updated += updated
+        out.print(mart_line(short, read_table(TABLES[short]).count(), inserted, updated))
+    figures.update(gold_inserted=gold_inserted, gold_updated=gold_updated)
+finally:
+    dbutils.jobs.taskValues.set(key="figures", value=figures)  # noqa: F821
 
 # COMMAND ----------
 

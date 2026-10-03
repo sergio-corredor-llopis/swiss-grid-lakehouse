@@ -191,7 +191,7 @@ https://opendata.swiss/en/dataset/energiedashboard-ch-landesverbrauch-und-endver
 
 ## Release and deploy
 
-CI and deploy are separate. `databricks.yml` defines the job `ch-load` for the default `dev` target (ENTSO-E Bronze, then Silver, serverless). It has no Swissgrid Bronze task, so the Swissgrid source runs only from the command line on that target; the `azure` target below runs both. Pushing a tag `v*` runs `deploy.yml`: an offline schema check of the bundle, then `databricks bundle validate` and `databricks bundle deploy -t dev` with the repository secrets `DATABRICKS_HOST` and `DATABRICKS_TOKEN`. Without those secrets (for example in a fork) the deploy job is skipped and the run stays green. CI never sees a secret.
+CI and deploy are separate. `databricks.yml` defines the job `ch-load` for the default `dev` target (ENTSO-E Bronze, Silver, Gold, then the run ledger task, serverless; scheduled daily at 06:00 Europe/Zurich, see the [schedule walkthrough](docs/walkthrough/schedule.md)). It has no Swissgrid Bronze task, so the Swissgrid source runs only from the command line on that target; the `azure` target below runs both. Pushing a tag `v*` runs `deploy.yml`: an offline schema check of the bundle, then `databricks bundle validate` and `databricks bundle deploy -t dev` with the repository secrets `DATABRICKS_HOST` and `DATABRICKS_TOKEN`. Without those secrets (for example in a fork) the deploy job is skipped and the run stays green. CI never sees a secret.
 
 Step by step, including the one-time setup: [deploy walkthrough](docs/walkthrough/deploy.md).
 
@@ -271,7 +271,14 @@ Planned, not implemented:
    (four marts, a Delta `MERGE`, `OPTIMIZE ... ZORDER BY` and `VERSION AS OF`),
    described in the Gold marts section above. Next: run the `gold` task on
    Databricks Free Edition and on Azure and record both runs.
-3. Orchestration with Databricks Workflows or Airflow, and a Streamlit view.
+3. <!-- schedule:begin -->Done in code and checked offline, not yet run on a schedule: the
+   `ch-load` job has a daily 06:00 (Europe/Zurich) schedule that reads the ENTSO-E
+   API, `max_concurrent_runs: 1`, and a last task that writes one row per run to
+   the `pipeline_runs` table; the same ledger runs locally with
+   `python -m swiss_grid_lakehouse.runs` and in CI. Next: three hourly runs on
+   Databricks Free Edition and one hand run on Azure, recorded in `docs/runs/`.
+   Steps: [schedule walkthrough](docs/walkthrough/schedule.md).<!-- schedule:end -->
+   Further: Airflow as an alternative orchestrator, and a Streamlit view.
 4. Possible extensions: Terraform for an ADLS Gen2 storage target (the `azure`
    target uses managed tables in a workspace catalog and needs no storage
    account), and streaming.
