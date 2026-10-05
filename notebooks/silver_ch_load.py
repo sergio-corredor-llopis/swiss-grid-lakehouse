@@ -59,40 +59,55 @@ silver_table = f"{catalog}.{schema}.{SILVER}"
 
 # COMMAND ----------
 
-for name in sources:
-    bronze = spark.table(f"{catalog}.{schema}.{BRONZE[name]}")  # noqa: F821
-    if name == "swissgrid":
-        silver = to_silver(to_hourly(bronze), value_col="energy_kwh")
+figures = {"silver_inserted": None, "silver_updated": None, "gate": None, "compare": None}
+silver_inserted = silver_updated = 0
+try:
+    for name in sources:
+        bronze = spark.table(f"{catalog}.{schema}.{BRONZE[name]}")  # noqa: F821
+        if name == "swissgrid":
+            silver = to_silver(to_hourly(bronze), value_col="energy_kwh")
+        else:
+            silver = to_silver(bronze)
+        result = run_gate(silver, _current_count(spark, silver_table, name))  # noqa: F821
+        if not result.passed:
+            out.print(f"{name}: {result.summary()}")
+            _write_rejected(result.rejected_df, silver_table)
+            figures["gate"] = result.summary().removeprefix("GATE:").strip()
+            raise RuntimeError(
+                f"quality gate failed for {name}, nothing merged: {result.summary()}"
+            )
+        out.print(f"{name}: {result.summary()} checks={CHECKS}")
+        inserted, updated = merge_silver(spark, silver, silver_table)  # noqa: F821
+        silver_inserted += inserted
+        silver_updated += updated
+        rows = _current_count(spark, silver_table, name)  # noqa: F821
+        out.print(f"{name}: merged inserted={inserted} updated={updated} rows={rows}")
+    figures.update(
+        silver_inserted=silver_inserted,
+        silver_updated=silver_updated,
+        gate=f"PASS checks={CHECKS}",
+    )
+
+    if {"entsoe", "swissgrid"} <= set(sources):
+        table = spark.table(silver_table)  # noqa: F821
+        cols = ["source", "area", table["ts_utc"].cast("long").alias("epoch"), "load_mw"]
+        if "load_enduser_mw" in table.columns:
+            cols.append("load_enduser_mw")
+        pairs = []
+        for r in table.filter(table["source"].isin("entsoe", "swissgrid")).select(*cols).collect():
+            d = r.asDict()
+            d["ts_utc"] = datetime.fromtimestamp(d.pop("epoch"), UTC)
+            pairs.append(d)
+        report = build_report(pairs)
+        figures["compare"] = "PASS" if report.passed else "FAIL"
+        for line in report.lines():
+            if line.startswith(("HOURLY", "COMPARE")):
+                out.print(line)
     else:
-        silver = to_silver(bronze)
-    result = run_gate(silver, _current_count(spark, silver_table, name))  # noqa: F821
-    if not result.passed:
-        out.print(f"{name}: {result.summary()}")
-        _write_rejected(result.rejected_df, silver_table)
-        raise RuntimeError(f"quality gate failed for {name}, nothing merged: {result.summary()}")
-    out.print(f"{name}: {result.summary()} checks={CHECKS}")
-    inserted, updated = merge_silver(spark, silver, silver_table)  # noqa: F821
-    rows = _current_count(spark, silver_table, name)  # noqa: F821
-    out.print(f"{name}: merged inserted={inserted} updated={updated} rows={rows}")
-
-# COMMAND ----------
-
-if {"entsoe", "swissgrid"} <= set(sources):
-    table = spark.table(silver_table)  # noqa: F821
-    cols = ["source", "area", table["ts_utc"].cast("long").alias("epoch"), "load_mw"]
-    if "load_enduser_mw" in table.columns:
-        cols.append("load_enduser_mw")
-    pairs = []
-    for r in table.filter(table["source"].isin("entsoe", "swissgrid")).select(*cols).collect():
-        d = r.asDict()
-        d["ts_utc"] = datetime.fromtimestamp(d.pop("epoch"), UTC)
-        pairs.append(d)
-    report = build_report(pairs)
-    for line in report.lines():
-        if line.startswith(("HOURLY", "COMPARE")):
-            out.print(line)
-else:
-    out.print("COMPARE skipped: `sources` must contain both entsoe and swissgrid")
+        figures["compare"] = "SKIPPED"
+        out.print("COMPARE skipped: `sources` must contain both entsoe and swissgrid")
+finally:
+    dbutils.jobs.taskValues.set(key="figures", value=figures)  # noqa: F821
 
 # COMMAND ----------
 

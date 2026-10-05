@@ -74,6 +74,7 @@ rows = to_bronze_rows(local_file, datetime.now(UTC))
 written = write_bronze(spark, rows, target)  # noqa: F821
 batch_id = rows[0][COLUMNS.index("batch_id")]
 out.print(f"{'wrote' if written else 'skipped'} {len(rows)} rows to {target} batch_id={batch_id}")
+dbutils.jobs.taskValues.set(key="figures", value={"swissgrid_rows": len(rows)})  # noqa: F821
 
 # COMMAND ----------
 

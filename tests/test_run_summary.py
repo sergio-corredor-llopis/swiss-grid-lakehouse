@@ -208,3 +208,44 @@ def test_bundle_run_with_a_leak_exits_3(tmp_path):
     assert result.returncode == 3
     assert result.stdout.strip() == "LEAK: workspace-id at line %d" % (len(text.splitlines()) + 1)
     assert "GATE" not in result.stdout
+
+
+LEDGER_TEXT = (
+    "merged inserted=96 updated=0 rows=96\n"
+    "RUN n=1 id=r1 target=ch-load status=SUCCESS\n"
+    "RUN n=2 id=r2 target=ch-load status=SUCCESS\n"
+    "HISTORY runs=2 success=2 failed=0\n"
+)
+
+
+def test_run_and_history_lines_are_kept(tmp_path):
+    source = tmp_path / "out.txt"
+    source.write_text("noise before\n" + LEDGER_TEXT + "noise after\n", encoding="utf-8")
+    result = render(source)
+    assert result.returncode == 0
+    kept = "\n".join(fenced_blocks(result.stdout)).splitlines()
+    for line in LEDGER_TEXT.splitlines():
+        assert line in kept
+    assert "- spark.version: not recorded" in result.stdout.splitlines()
+    assert "noise" not in result.stdout
+
+
+def test_ledger_line_is_not_read_as_the_version_line(tmp_path):
+    source = tmp_path / "out.txt"
+    source.write_text("RUN spark_version=4.0.0\n" + LEDGER_TEXT, encoding="utf-8")
+    result = render(source)
+    assert result.returncode == 0
+    assert "- spark.version: 4.0.0" in result.stdout.splitlines()
+
+
+@pytest.mark.parametrize("name", sorted(FAKE_LEAKS))
+def test_planted_host_next_to_ledger_lines_is_still_rejected(tmp_path, name):
+    value = FAKE_LEAKS[name]
+    source = tmp_path / "out.txt"
+    source.write_text(LEDGER_TEXT + "RUN n=3 id=" + value + " status=FAILED\n", encoding="utf-8")
+    result = render(source)
+    assert result.returncode == 3
+    planted_at = len(LEDGER_TEXT.splitlines()) + 1
+    assert result.stdout.strip() == "LEAK: %s at line %d" % (name, planted_at)
+    assert value not in result.stdout
+    assert "HISTORY" not in result.stdout

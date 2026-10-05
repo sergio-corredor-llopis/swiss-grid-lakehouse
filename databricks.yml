@@ -2,18 +2,25 @@ bundle: {name: swiss-grid-lakehouse}
 variables:
   catalog: {description: Target catalog, default: workspace}
   schema:  {description: Target schema, default: swiss_grid}
-  source:  {description: "Volume path of an XML file, or api",
-            default: /Volumes/workspace/swiss_grid/raw/entsoe_ch_load_sample.xml}
+  source:  {description: "Input of the scheduled run: api (secret scope entsoe) or the Volume path of a recorded XML file",
+            default: api}
+  schedule_cron: {description: "Quartz cron of the schedule, Europe/Zurich time; daily at 06:00 by default, hourly is 0 0 * * * ?",
+                  default: "0 0 6 * * ?"}
   raw_volume: {description: "Unity Catalog Volume that holds the recorded input files",
                default: "/Volumes/${var.catalog}/${var.schema}/raw"}
 resources:
   jobs:
     ch_load:
       name: ch-load
+      max_concurrent_runs: 1
+      schedule: {quartz_cron_expression: "${var.schedule_cron}", timezone_id: Europe/Zurich,
+        pause_status: UNPAUSED}
+      parameters:
+        - {name: source, default: "${var.source}"}
       tasks:
         - task_key: bronze
           notebook_task: {notebook_path: ./notebooks/bronze_entsoe_ch_load.py,
-            base_parameters: {source: "${var.source}", catalog: "${var.catalog}", schema: "${var.schema}"}}
+            base_parameters: {source: "{{job.parameters.source}}", catalog: "${var.catalog}", schema: "${var.schema}"}}
         - task_key: silver
           depends_on: [{task_key: bronze}]
           notebook_task: {notebook_path: ./notebooks/silver_ch_load.py,
@@ -22,6 +29,13 @@ resources:
           depends_on: [{task_key: silver}]
           notebook_task: {notebook_path: ./notebooks/gold_marts.py,
             base_parameters: {catalog: "${var.catalog}", schema: "${var.schema}"}}
+        - task_key: run_history
+          depends_on: [{task_key: bronze}, {task_key: silver}, {task_key: gold}]
+          run_if: ALL_DONE
+          notebook_task: {notebook_path: ./notebooks/run_history.py,
+            base_parameters: {run_id: "{{job.run_id}}", started_at: "{{job.start_time.iso_datetime}}",
+              target: ch-load, source: "{{job.parameters.source}}",
+              catalog: "${var.catalog}", schema: "${var.schema}"}}
 targets:
   dev: {mode: development, default: true}
   azure:
@@ -29,6 +43,11 @@ targets:
       jobs:
         ch_load_azure:
           name: ch-load-azure
+          max_concurrent_runs: 1
+          schedule:
+            quartz_cron_expression: "${var.schedule_cron}"
+            timezone_id: Europe/Zurich
+            pause_status: PAUSED
           tasks:
             - task_key: bronze_entsoe
               notebook_task:
@@ -70,5 +89,22 @@ targets:
               notebook_task:
                 notebook_path: ./notebooks/gold_marts.py
                 base_parameters:
+                  catalog: "${var.catalog}"
+                  schema: "${var.schema}"
+            - task_key: run_history
+              depends_on:
+                - task_key: bronze_entsoe
+                - task_key: bronze_swissgrid
+                - task_key: silver
+                - task_key: reconcile
+                - task_key: gold
+              run_if: ALL_DONE
+              notebook_task:
+                notebook_path: ./notebooks/run_history.py
+                base_parameters:
+                  run_id: "{{job.run_id}}"
+                  started_at: "{{job.start_time.iso_datetime}}"
+                  target: ch-load-azure
+                  source: recorded
                   catalog: "${var.catalog}"
                   schema: "${var.schema}"

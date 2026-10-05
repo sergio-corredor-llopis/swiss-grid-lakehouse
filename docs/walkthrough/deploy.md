@@ -4,21 +4,23 @@ This page shows how the Bronze and Silver notebooks become one Databricks job
 that is deployed from a reviewed file, and how a version tag deploys it from
 GitHub Actions. The earlier pages ([first ingest](first_ingest.md),
 [Bronze on Delta](bronze_delta.md), [Silver with MERGE](silver_merge.md)) run
-locally; this one needs a Databricks workspace. No ENTSO-E token is needed for
-the sample file.
+locally; this one needs a Databricks workspace. The sample file needs no
+ENTSO-E token; the default scheduled input does (see the schedule page).
 
 ## 1. What the bundle declares
 
 `databricks.yml` at the repository root declares a Databricks Asset Bundle
 named `swiss-grid-lakehouse`:
 
-- three variables: `catalog` (default `workspace`), `schema` (default
-  `swiss_grid`) and `source` (a Volume path to an XML file, or `api`);
-- one job, `ch-load`, with two tasks on serverless compute: `bronze` runs
-  `notebooks/bronze_entsoe_ch_load.py`, then `silver` runs
-  `notebooks/silver_ch_load.py` after it. The variables are passed to the
-  notebooks as parameters. This job has no Swissgrid Bronze task, so it loads the
-  ENTSO-E source only;
+- variables: `catalog` (default `workspace`), `schema` (default `swiss_grid`),
+  `source` (a Volume path to an XML file, or `api`, the default) and
+  `schedule_cron` (the Quartz cron of the schedule);
+- one job, `ch-load`, with four tasks on serverless compute: `bronze` runs
+  `notebooks/bronze_entsoe_ch_load.py`, `silver` runs
+  `notebooks/silver_ch_load.py` after it, `gold` runs `notebooks/gold_marts.py`,
+  and `run_history` writes the run ledger row even when an earlier task failed.
+  The variables are passed to the notebooks as parameters. This job has no
+  Swissgrid Bronze task, so it loads the ENTSO-E source only;
 - one target, `dev`, in development mode and the default target;
 - a second target, `azure`, with its own job that covers both sources and the
   daily reconcile, described in [Azure Databricks](azure.md).
@@ -70,8 +72,11 @@ databricks bundle deploy -t dev
 databricks bundle run -t dev ch_load
 ```
 
-The run prints the output of both notebooks. The first run of a fresh table
-shows:
+With the default `source=api` the run reads the ENTSO-E token from the secret
+scope `entsoe` (see [Schedule and run history](schedule.md), step H0). To run
+from the recorded file instead, pass its Volume path with
+`--params source=<path>`. The run prints the output of the notebooks. The first
+run of a fresh table shows:
 
 ```
 wrote 48 rows to workspace.swiss_grid.entsoe_ch_load_bronze batch_id=...
@@ -123,8 +128,14 @@ The token expires after 90 days; create a new one and replace the secret.
 - **Serverless compute.** The job declares no cluster: there is nothing to size,
   patch or leave running, and it matches the environment the notebooks were run
   in.
-- **No schedule.** The job runs when someone starts it. The sample file is a
-  fixed input, and a trigger would only repeat the same rows.
+- **A schedule, with a reason.** An earlier version had none, because its input
+  was one fixed sample file and a trigger would only have repeated the same rows.
+  The scheduled job now reads the ENTSO-E API (`source=api`), so each run sees
+  new data, and every run leaves one row in the `pipeline_runs` ledger. The
+  schedule, the run limit and the ledger task are described in
+  [Schedule and run history](schedule.md).
 - **Development mode.** The `dev` target prefixes the deployed job with the
-  user name and pauses any schedule, so a deploy cannot collide with someone
-  else's copy of the job.
+  user name, so a deploy cannot collide with someone else's copy of the job.
+  Development mode pauses schedules by default; `ch-load` sets
+  `pause_status: UNPAUSED` itself, so check on the Jobs page that its schedule
+  shows as active after a deploy.
