@@ -10,7 +10,7 @@ RESTful API guide) and set `ENTSOE_API_TOKEN`; the Silver steps are the same.
 
 ```sh
 pip install -e ".[dev,spark]"
-python -m swiss_grid_lakehouse.bronze --xml tests/fixtures/entsoe_ch_load_sample.xml --target /tmp/bronze_ch_load
+python -m swiss_grid_lakehouse.bronze --xml tests/fixtures/entsoe_ch_load_2026-08-30.xml --target /tmp/bronze_ch_load
 ```
 
 Local Spark needs a Java 17 or 21 runtime.
@@ -78,8 +78,9 @@ and `tests/test_silver_cli.py` plant a bad row and assert exactly that.
 - Gaps are reported by the gate, not filled. Inventing values would hide a
   data problem.
 - As with Bronze, the same functions run from the command line and from the
-  Databricks notebook (`notebooks/silver_ch_load.py`); the notebook has not been
-  run on a Databricks workspace yet.
+  Databricks notebook (`notebooks/silver_ch_load.py`); the notebook ran on
+  Databricks Free Edition on 2026-09-27, and the recorded output is in the
+  README section "Databricks Free Edition run".
 
 ## Tests
 

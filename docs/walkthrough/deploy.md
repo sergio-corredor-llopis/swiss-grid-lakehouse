@@ -15,15 +15,29 @@ named `swiss-grid-lakehouse`:
 - variables: `catalog` (default `workspace`), `schema` (default `swiss_grid`),
   `source` (a Volume path to an XML file, or `api`, the default) and
   `schedule_cron` (the Quartz cron of the schedule);
-- one job, `ch-load`, with four tasks on serverless compute: `bronze` runs
-  `notebooks/bronze_entsoe_ch_load.py`, `silver` runs
-  `notebooks/silver_ch_load.py` after it, `gold` runs `notebooks/gold_marts.py`,
-  and `run_history` writes the run ledger row even when an earlier task failed.
-  The variables are passed to the notebooks as parameters. This job has no
-  Swissgrid Bronze task, so it loads the ENTSO-E source only;
+- one job, `ch-load`, with four tasks on serverless compute, in this order:
+  `bronze` runs `notebooks/bronze_entsoe_ch_load.py` and writes the ENTSO-E
+  load to a Bronze table; `silver` runs `notebooks/silver_ch_load.py` after it
+  and merges Bronze into the Silver table; `gold` runs `notebooks/gold_marts.py`
+  after `silver` and builds the Gold marts; `run_history` runs
+  `notebooks/run_history.py` and writes the run ledger row even when an earlier
+  task failed (`run_if: ALL_DONE`). The variables are passed to the notebooks as
+  parameters. This job has no Swissgrid Bronze task, so it loads the ENTSO-E
+  source only;
 - one target, `dev`, in development mode and the default target;
-- a second target, `azure`, with its own job that covers both sources and the
-  daily reconcile, described in [Azure Databricks](azure.md).
+- a second target, `azure`, with its own job, `ch-load-azure`, that covers both
+  sources and the daily reconcile, described in [Azure Databricks](azure.md).
+  Its six tasks, in dependency order: `bronze_entsoe` runs
+  `notebooks/bronze_entsoe_ch_load.py` on the recorded ENTSO-E XML and writes
+  the hourly load to a Bronze table; `bronze_swissgrid` runs
+  `notebooks/bronze_swissgrid_energy.py` on the recorded Swissgrid CSV and
+  writes the quarter-hour energy series to a Bronze table; `silver` runs
+  `notebooks/silver_ch_load.py` after both and merges the two sources into the
+  Silver table; `reconcile` runs `notebooks/reconcile_daily.py` after `silver`
+  and checks the daily totals against the published daily figures; `gold` runs
+  `notebooks/gold_marts.py` after `reconcile` and builds the Gold marts;
+  `run_history` runs `notebooks/run_history.py`, waits for all five and writes
+  the run ledger row even when one of them failed (`run_if: ALL_DONE`).
 
 The job that was started by hand in the Databricks UI is now this file.
 
@@ -43,13 +57,18 @@ The job that was started by hand in the Databricks UI is now this file.
    databricks volumes create workspace swiss_grid raw MANAGED
    ```
 
-4. The recorded ENTSO-E XML in the Volume, under the file name the default of
-   the `source` variable expects:
+4. The recorded ENTSO-E XML in the Volume, under its committed name
+   `entsoe_ch_load_2026-08-30.xml`:
 
    ```sh
    databricks fs cp tests/fixtures/entsoe_ch_load_2026-08-30.xml \
-     dbfs:/Volumes/workspace/swiss_grid/raw/entsoe_ch_load_sample.xml
+     dbfs:/Volumes/workspace/swiss_grid/raw/entsoe_ch_load_2026-08-30.xml
    ```
+
+   The `ch-load-azure` job of the `azure` target reads this file: its
+   `bronze_entsoe` task takes `${var.raw_volume}/entsoe_ch_load_2026-08-30.xml`
+   as its `source`. The `ch-load` job of the `dev` target reads the ENTSO-E API
+   by default and reads the file only when you pass its Volume path as `source`.
 
 Before any login, the bundle can be checked against the CLI's own JSON schema.
 This needs the CLI but no workspace and no token:

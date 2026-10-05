@@ -8,7 +8,7 @@ The CI workflow is `.github/workflows/ci.yml`. One term is this project's own:
 
 - **Recorded fixture**: a real reply from a real API, saved once to a file and
   committed, so the tests run offline and without a key. Ours is
-  `tests/fixtures/entsoe_ch_load_sample.xml`, an unmodified ENTSO-E
+  `tests/fixtures/entsoe_ch_load_2026-08-30.xml`, an unmodified ENTSO-E
   Transparency Platform response: root element `<GL_MarketDocument`, process
   type `A16` (actual load).
 
@@ -103,17 +103,17 @@ carries the real quirks of the API. The size and marker checks in the test stop
 anyone replacing it with a toy.
 
 **Why pandas at this stage?** The ingest is one request returning a few hundred
-rows, and the `entsoe-py` parser returns pandas. Spark is not used anywhere in
-the code today; see the roadmap in the README for where it is planned.
+rows, and the `entsoe-py` parser returns pandas. Spark and Delta are used from
+the Bronze layer on; the first ingest itself stays pandas.
 
 **Why is the token environment-only?** So it cannot land in git, a log or a
 test. `.gitignore` also excludes `.env`.
 
 **Why does the Spark guard exist?** `tests/test_smoke.py` fails if
-`pyproject.toml` or the CI workflow mentions `pyspark` or `databricks-connect`.
-It documents that the core package and this CI job are Spark-free today. When
-Spark code arrives it will live outside the core package and run on
-Databricks, and the guard will be scoped accordingly.
+a core or `dev` dependency in `pyproject.toml` mentions `spark` or
+`databricks-connect`, or if the optional `spark` group does not pin
+`pyspark==4.0.1` and `delta-spark==4.0.0`, or if the CI workflow mentions
+`pyspark` or `databricks-connect`.
 
 ## Try a small change
 
